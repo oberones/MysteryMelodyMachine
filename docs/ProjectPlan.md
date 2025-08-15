@@ -18,8 +18,8 @@ This document is a **build-ready plan** for your interactive, mysterious music s
 ## 2) Wiring Diagram
 ![Teensy wiring](./teensy_wiring_diagram.png)
 
-**Pin map**
-- **Buttons B1–B12 → D2–D13** (INPUT_PULLUP), send MIDI Notes 60–71  
+**Pin map** (Revised: 10 buttons v1)
+- **Buttons B1–B10 → D2–D11** (INPUT_PULLUP), send MIDI Notes 60–69  
 - **Knobs K1–K6 → A0–A5** (10k linear pots), send MIDI CC 20–25  
 - **Joystick U/D/L/R → D22–D25** (INPUT_PULLUP), send MIDI CC 50–53  
 - **Switches S1–S3 → D26–D28** (INPUT_PULLUP), send MIDI CC 60–62  
@@ -54,7 +54,7 @@ Holes: **Buttons Ø1.2″**, **Knobs Ø1.0″**, **Switches 0.6″×0.3″**, **
 ## 5) Bill of Materials (core)
 - Teensy 4.1 + USB cable  
 - Raspberry Pi 4 (2–4 GB) + SD card + PSU  
-- 12× LED arcade buttons + harnesses  
+- 10× LED arcade buttons + harnesses  
 - 6× 10k linear potentiometers + knobs  
 - 8-way arcade joystick  
 - 3× SPST/SPDT toggle switches  
@@ -66,7 +66,7 @@ Holes: **Buttons Ø1.2″**, **Knobs Ø1.0″**, **Switches 0.6″×0.3″**, **
 ---
 
 ## 6) Software Mapping (Teensy → MIDI)
-- **Buttons (B1–B12):** MIDI Notes 60–71 (also trigger secondary hidden rules in the Pi patch)  
+- **Buttons (B1–B10):** MIDI Notes 60–69 (also trigger secondary hidden rules in the Pi patch)  
 - **Knobs (K1–K6):** MIDI CC 20–25 (tempo, cutoff, reverb mix, swing, density, volume… plus hidden ties)  
 - **Joystick (U/D/L/R):** MIDI CC 50–53 (sequence length, scale, chaos lock, etc.)  
 - **Switches (S1–S3):** MIDI CC 60–62 (mode/palette/drift)
@@ -81,21 +81,21 @@ Holes: **Buttons Ø1.2″**, **Knobs Ø1.0″**, **Switches 0.6″×0.3″**, **
 // USB Type: MIDI (set in Tools menu)
 #include <FastLED.h>
 
-const int buttonPins[12] = {2,3,4,5,6,7,8,9,10,11,12,13};
+const int buttonPins[10] = {2,3,4,5,6,7,8,9,10,11}; // D12,D13 freed (future use)
 const int knobPins[6]    = {A0,A1,A2,A3,A4,A5};
 const int joyPins[4]     = {22,23,24,25};
 const int switchPins[3]  = {26,27,28};
 const int LED_PIN = 14;
 
 void setup(){
-  for(int i=0;i<12;i++) pinMode(buttonPins[i], INPUT_PULLUP);
+  for(int i=0;i<10;i++) pinMode(buttonPins[i], INPUT_PULLUP);
   for(int i=0;i<4;i++)  pinMode(joyPins[i], INPUT_PULLUP);
   for(int i=0;i<3;i++)  pinMode(switchPins[i], INPUT_PULLUP);
   // init LEDs & MIDI here
 }
 
 void loop(){
-  // scan buttons -> usbMIDI.sendNoteOn/Off(60+i,...)
+  // scan buttons -> usbMIDI.sendNoteOn/Off(60+i,... up to 69)
   // read knobs -> usbMIDI.sendControlChange(20+k, value, 1);
   // scan joystick -> usbMIDI.sendControlChange(50+d, 127, 1);
   // scan switches  -> usbMIDI.sendControlChange(60+s, state?127:0, 1);
@@ -137,7 +137,7 @@ void loop(){
 ## 11) Appendix — Exact Pin/Message Map
 | Control | Teensy Pin | MIDI Message |
 |---|---|---|
-| B1–B12 | D2–D13 | Note 60–71 |
+| B1–B10 | D2–D11 | Note 60–69 |
 | K1–K6 | A0–A5 | CC 20–25 |
 | Joystick U/D/L/R | D22/D23/D24/D25 | CC 50–53 |
 | Switch S1–S3 | D26/D27/D28 | CC 60–62 |
