@@ -12,7 +12,7 @@ Keep the *mystery*: Physical inputs map to conventional MIDI messages; the Pi la
 
 ---
 ## 🧩 Features (Initial Scope)
-- 12 illuminated arcade buttons (MIDI Notes 60–71)
+- 10 illuminated arcade buttons (MIDI Notes 60–69)
 - 6 knobs (CC 20–25) for tempo, filter, density, swing, mix, volume (or remapped)
 - 4-way joystick (CC 50–53) for sequence length, scale, chaos, etc.
 - 3 toggle switches (CC 60–62) for mode / palette / drift
@@ -26,7 +26,7 @@ Keep the *mystery*: Physical inputs map to conventional MIDI messages; the Pi la
 |-----------|-------|
 | Controller | Teensy 4.1 (USB MIDI) |
 | Host | Raspberry Pi 4 (2–4 GB) + SD + PSU |
-| Inputs | 12x arcade buttons, 6x 10k linear pots, joystick, 3x toggles |
+| Inputs | 10x arcade buttons, 6x 10k linear pots, joystick, 3x toggles |
 | LEDs | 60–100 addressable pixels (5V) + 330–470 Ω data resistor + 1000 µF cap |
 | Power | 5V LED PSU (10–15 A) + shared ground, fused IEC inlet |
 | Enclosure | 24"×12" angled panel, ~42" high cabinet (birch plywood) |
@@ -37,7 +37,7 @@ See `docs/` images for pin map & layouts.
 ## 🎛 Pin / MIDI Mapping (Teensy)
 | Control | Pins | MIDI |
 |---------|------|------|
-| Buttons B1–B12 | D2–D13 | Notes 60–71 |
+| Buttons B1–B10 | D2–D11 | Notes 60–69 |
 | Knobs K1–K6 | A0–A5 | CC 20–25 |
 | Joystick U/D/L/R | D22–D25 | CC 50–53 |
 | Switches S1–S3 | D26–D28 | CC 60–62 |
@@ -63,13 +63,13 @@ See `docs/` images for pin map & layouts.
 Minimal skeleton:
 ```cpp
 #include <FastLED.h>
-const int buttonPins[12]={2,3,4,5,6,7,8,9,10,11,12,13};
+const int buttonPins[10]={2,3,4,5,6,7,8,9,10,11}; // D12,D13 free for future expansion
 const int knobPins[6]={A0,A1,A2,A3,A4,A5};
 const int joyPins[4]={22,23,24,25};
 const int switchPins[3]={26,27,28};
 #define LED_PIN 14
 void setup(){
-  for(int i=0;i<12;i++) pinMode(buttonPins[i], INPUT_PULLUP);
+  for(int i=0;i<10;i++) pinMode(buttonPins[i], INPUT_PULLUP);
   for(int i=0;i<4;i++) pinMode(joyPins[i], INPUT_PULLUP);
   for(int i=0;i<3;i++) pinMode(switchPins[i], INPUT_PULLUP);
   // init LEDs & MIDI
