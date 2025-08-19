@@ -47,9 +47,15 @@ See `docs/` images for pin map & layouts.
 ## 📁 Repository Layout
 ```
 /README.md              ← (this file)
+/.venv/                 ← Python virtual environment (required)
 /docs/                  ← Project plan + diagrams
 /teensy/                ← Firmware (to be added)
-/rpi/                   ← Generative engine code (to be added)
+/rpi/                   ← Generative engine code
+  /engine/              ← Phase 2 Python implementation (complete)
+    /src/               ← Source code
+    /tests/             ← Test suite
+    config.yaml         ← Configuration
+    requirements.txt    ← Python dependencies
 ```
 
 ---
@@ -80,10 +86,29 @@ void loop(){
 ```
 
 ### 2. Raspberry Pi Engine
+**Prerequisites**: Ensure you have Python 3.11+ and activate the virtual environment:
+```bash
+# From project root - verify setup first
+./verify_setup.sh
+
+# Or manually:
+source .venv/bin/activate
+pip install -r rpi/engine/requirements.txt
+```
+
 Choose a stack (pick one to start):
+- **Python** (Phase 2 Complete): `mido` / `python-rtmidi` + state management + sequencer — **Currently implemented**
 - Pure Data: `sudo apt install puredata` — build a patch that listens to Notes 60–71 & CCs, maps to synth voices & parameters, adds probabilistic mutation.
 - SuperCollider: Install `supercollider` + write a MIDIdef-based pattern engine.
-- Python: `mido` / `python-rtmidi` + `scamp` / `pyo` / `supercollider via sc3nb` for synthesis.
+
+**Current Python Implementation** (Phase 2):
+```bash
+# Run the engine (within activated venv)
+python rpi/engine/src/main.py --config rpi/engine/config.yaml --log-level INFO
+
+# Run tests
+pytest rpi/engine/tests -q
+```
 
 Suggested architecture:
 ```
@@ -115,14 +140,19 @@ Suggested architecture:
 - Separate audio wiring away from high-current LED runs
 
 ---
-## 🗺 Roadmap (Proposed)
+## 🗺 Roadmap (Current Status)
 - [ ] Commit baseline Teensy firmware
 - [ ] Add LED feedback patterns (press, pulse, idle fade)
-- [ ] Implement first Pi engine (pick PD or Python)
-- [ ] Add scale & mode system + random mutation timer
-- [ ] Introduce secret combo sequences (easter eggs)
+- [x] **Phase 1**: MIDI ingress and semantic routing (Python)
+- [x] **Phase 2**: State management and basic sequencer (Python)
+- [ ] **Phase 3**: Probability density gating and scale mapping
+- [ ] **Phase 4**: Mutation and drift systems
+- [ ] **Phase 5**: Synthesis backend integration (SuperCollider)
+- [ ] Add secret combo sequences (easter eggs)
 - [ ] Logging & performance profiling
 - [ ] Package enclosure cutting template (DXF)
+
+**Current Implementation**: Phase 2 Python engine with state management, sequencer, and real-time parameter control via MIDI.
 
 ---
 ## 🤝 Contributing

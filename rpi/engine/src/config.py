@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Dict, List, Optional
 import yaml
 
@@ -12,7 +12,7 @@ class SequencerConfig(BaseModel):
     bpm: float = 110.0
     swing: float = 0.12
     density: float = 0.85
-    quantize_scale_changes: str = Field("bar", regex=r"^(immediate|bar)$")
+    quantize_scale_changes: str = Field("bar", pattern=r"^(immediate|bar)$")
 
 class MutationConfig(BaseModel):
     interval_min_s: int = 120
@@ -26,11 +26,11 @@ class IdleConfig(BaseModel):
     fade_out_ms: int = 800
 
 class SynthConfig(BaseModel):
-    backend: str = Field("supercollider", regex=r"^(supercollider)$")
+    backend: str = Field("supercollider", pattern=r"^(supercollider)$")
     voices: int = 8
 
 class LoggingConfig(BaseModel):
-    level: str = Field("INFO", regex=r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
+    level: str = Field("INFO", pattern=r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
 
 class ApiConfig(BaseModel):
     enabled: bool = True
@@ -47,7 +47,8 @@ class RootConfig(BaseModel):
     logging: LoggingConfig = LoggingConfig()
     api: ApiConfig = ApiConfig()
 
-    @validator("scales")
+    @field_validator("scales")
+    @classmethod
     def non_empty_scales(cls, v):
         if not v:
             raise ValueError("At least one scale must be defined")
