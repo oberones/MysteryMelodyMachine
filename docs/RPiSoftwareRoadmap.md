@@ -240,31 +240,34 @@ MVP chooses only the messages required for existing animations.
 - [X] Core state container with change listeners.
 - [X] Sequencer tick with static BPM & step playback (no probability yet).
 
-### Phase 3: Scale & Probability
+### Phase 3: Optional MIDI Output
+- [ ] Optional MIDI output allows for messages to be sent to the attached MIDI device.
+
+### Phase 4: Scale & Probability
 - [ ] Add probability per step, density gating.
 - [ ] Implement scale mapper & switch scales via mapped CC.
 
-### Phase 4: Mutation & Drift
+### Phase 5: Mutation & Drift
 - [ ] Add BPM drift envelope + mutation scheduler.
 - [ ] Logging of each mutation.
 
-### Phase 5: Backend Synthesis Integration
+### Phase 6: Backend Synthesis Integration
 - [ ] Implement simple synth backend (pyo or fluidsynth) for note triggering.
 - [ ] Parameter mapping (filter cutoff, reverb mix, volume).
 
-### Phase 6: LED Event Emission
+### Phase 7: LED Event Emission
 - [ ] Basic LED cue emitter (note, param, mode).
 - [ ] Idle mode LED event.
 
-### Phase 7: API & Metrics
+### Phase 8: API & Metrics
 - [ ] HTTP/JSON endpoint for current state & mutation history.
 - [ ] Prometheus metrics endpoint.
 
-### Phase 8: Hardening & Soak
+### Phase 9: Hardening & Soak
 - [ ] Reconnect logic, CPU/memory monitors.
 - [ ] Long-run soak test & performance tuning.
 
-### Phase 9: Polish
+### Phase 10: Polish
 - [ ] Preset save/load.
 - [ ] Config hot-reload (SIGHUP or file watcher).
 - [ ] CLI flags for overrides.

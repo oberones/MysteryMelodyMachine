@@ -30,6 +30,7 @@ class NoteEvent:
     velocity: int
     timestamp: float
     step: int  # Step that generated this note
+    duration: float = 0.1  # Duration in seconds (for note off timing)
 
 
 class HighResClock:
@@ -237,16 +238,23 @@ class Sequencer:
             note = scale_notes[step % len(scale_notes)]
             velocity = 80
             
+            # Calculate note duration based on tempo
+            bpm = self.state.get('bpm', 110.0)
+            # Default gate length of 80% of step duration
+            step_duration = 60.0 / (bpm * self._steps_per_beat)
+            gate_length = step_duration * 0.8
+            
             note_event = NoteEvent(
                 note=note,
                 velocity=velocity,
                 timestamp=time.time(),
-                step=step
+                step=step,
+                duration=gate_length
             )
             
             try:
                 self._note_callback(note_event)
-                log.debug(f"note_generated step={step} note={note} velocity={velocity}")
+                log.debug(f"note_generated step={step} note={note} velocity={velocity} duration={gate_length:.3f}")
             except Exception as e:
                 log.error(f"Note callback error: {e}")
 

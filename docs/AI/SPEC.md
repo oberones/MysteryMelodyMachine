@@ -107,8 +107,8 @@ Global brightness cap: 160/255. Idle brightness cap: 15% of cap.
 - Keep ISR usage minimal (prefer polling at 1 kHz unless a true interrupt is necessary—none planned v1).
 
 ### Python (Pi)
-- **Virtual Environment**: All Python development and execution must be done within the `.venv` virtual environment in the project root.
-- **Dependency Management**: Use `pip install -r rpi/engine/requirements.txt` within the activated virtual environment.
+- **Virtual Environment**: All Python development and execution must be done within the `.venv` virtual environment in the `rpi/engine/` directory.
+- **Dependency Management**: Use `pip install -r requirements.txt` within the activated virtual environment (from `rpi/engine/` directory).
 - Use type hints (PEP484) & `pydantic` for config validation.
 - Module naming: `snake_case.py`; classes `PascalCase`; constants `UPPER_SNAKE`.
 - Prefer composition over inheritance; inject dependencies through constructors.
@@ -139,8 +139,8 @@ Firmware:
 - Soak test 4 hr bench (simulate button & pot activity)
 
 Pi Engine:
-- **Environment**: All testing must be performed within the activated `.venv` virtual environment
-- **Test Execution**: `source .venv/bin/activate && pytest rpi/engine/tests/`
+- **Environment**: All testing must be performed within the activated `.venv` virtual environment in `rpi/engine/`
+- **Test Execution**: `cd rpi/engine && source .venv/bin/activate && pytest tests/`
 - Unit tests (mapping, scale mapper, mutation bounds)
 - Integration: simulated MIDI feed → expected synth event count / ordering
 - Performance: tick jitter histogram logging
@@ -180,10 +180,10 @@ When extending firmware:
 - Add tests or diagnostic notes for new behavior.
 
 When extending Pi engine:
-- **CRITICAL**: Always activate the virtual environment first: `source .venv/bin/activate`
-- **Dependencies**: Install/update requirements within venv: `pip install -r rpi/engine/requirements.txt`
-- **Testing**: Run tests within venv: `pytest rpi/engine/tests/`
-- **Execution**: Run engine within venv: `python rpi/engine/src/main.py --config rpi/engine/config.yaml`
+- **CRITICAL**: Always activate the virtual environment first: `cd rpi/engine && source .venv/bin/activate`
+- **Dependencies**: Install/update requirements within venv: `pip install -r requirements.txt`
+- **Testing**: Run tests within venv: `pytest tests/`
+- **Execution**: Run engine within venv: `python src/main.py --config config.yaml`
 - Keep config schema backward compatible (add new keys with defaults).
 - Any new semantic action must map cleanly from existing MIDI ranges or use reserved CC after discussion (prefer Pi-side remapping before modifying firmware mapping).
 - Maintain separation: mapping layer should not contain direct synthesis logic.

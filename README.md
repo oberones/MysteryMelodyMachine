@@ -92,8 +92,9 @@ void loop(){
 ./verify_setup.sh
 
 # Or manually:
+cd rpi/engine
 source .venv/bin/activate
-pip install -r rpi/engine/requirements.txt
+pip install -r requirements.txt
 ```
 
 Choose a stack (pick one to start):

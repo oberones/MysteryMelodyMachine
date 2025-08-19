@@ -14,10 +14,10 @@ fi
 
 echo "✓ Project root directory confirmed"
 
-# Check if virtual environment exists
-if [ ! -f ".venv/bin/activate" ]; then
-    echo "❌ ERROR: Virtual environment not found at .venv/"
-    echo "   Please create it with: python3 -m venv .venv"
+# Check for virtual environment in rpi/engine
+if [ ! -d "rpi/engine/.venv" ]; then
+    echo "❌ Virtual environment not found at rpi/engine/.venv"
+    echo "   Please create it with: cd rpi/engine && python3 -m venv .venv"
     exit 1
 fi
 
@@ -25,6 +25,7 @@ echo "✓ Virtual environment found"
 
 # Activate virtual environment
 echo "Activating virtual environment..."
+cd rpi/engine
 source .venv/bin/activate
 
 # Check Python version
@@ -37,7 +38,7 @@ if python -c "import mido, pydantic, yaml" 2>/dev/null; then
     echo "✓ Core dependencies available"
 else
     echo "⚠️  Installing dependencies..."
-    pip install -r rpi/engine/requirements.txt
+    pip install -r requirements.txt
     if [ $? -eq 0 ]; then
         echo "✓ Dependencies installed successfully"
     else
@@ -88,9 +89,9 @@ echo ""
 echo "🎉 Virtual environment setup verification PASSED!"
 echo ""
 echo "You can now run:"
-echo "  source .venv/bin/activate"
-echo "  python rpi/engine/src/main.py --config rpi/engine/config.yaml --log-level INFO"
+echo "  cd rpi/engine && source .venv/bin/activate"
+echo "  python src/main.py --config config.yaml --log-level INFO"
 echo ""
 echo "Or run tests with:"
-echo "  source .venv/bin/activate"
+echo "  cd rpi/engine && source .venv/bin/activate"
 echo "  pytest rpi/engine/tests/ -v"

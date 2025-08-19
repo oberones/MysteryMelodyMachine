@@ -1,5 +1,6 @@
 midi:
   input_port: auto
+  output_port: auto  # Set to "auto" or specific port name to enable MIDI output
   channel: 1
 mapping:
   buttons:

@@ -25,17 +25,17 @@ Phase 2 implements state management and basic sequencer functionality (see root 
 **IMPORTANT**: All Python operations must be performed within the virtual environment.
 
 ```bash
-# Activate virtual environment (from project root)
+# Activate virtual environment (from engine directory)
 source .venv/bin/activate
 
 # Install dependencies
-pip install -r rpi/engine/requirements.txt
+pip install -r requirements.txt
 
 # Run tests
-pytest rpi/engine/tests -q
+pytest tests -q
 
 # Run engine
-python rpi/engine/src/main.py --config rpi/engine/config.yaml --log-level INFO
+python src/main.py --config config.yaml --log-level INFO
 ```
 
 Example log lines:

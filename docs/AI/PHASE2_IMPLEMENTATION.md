@@ -88,14 +88,15 @@ MIDI Events → Router → Semantic Events → Action Handler
 **Prerequisites**: All testing must be performed within the activated virtual environment.
 
 ```bash
-# Activate virtual environment (from project root)
+# Activate virtual environment (from engine directory)
+cd rpi/engine
 source .venv/bin/activate
 
 # Install dependencies
-pip install -r rpi/engine/requirements.txt
+pip install -r requirements.txt
 
 # Run comprehensive test suite
-pytest rpi/engine/tests/ -v
+pytest tests/ -v
 ```
 
 Comprehensive test suite includes:

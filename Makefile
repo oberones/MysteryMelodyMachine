@@ -21,14 +21,12 @@
 
 # Project paths
 PROJECT_ROOT := $(shell pwd)
-VENV_PATH := $(PROJECT_ROOT)/.venv
+ENGINE_DIR := rpi/engine
+VENV_PATH := $(PROJECT_ROOT)/$(ENGINE_DIR)/.venv
 VENV_BIN := $(VENV_PATH)/bin
 PYTHON := $(VENV_BIN)/python
 PIP := $(VENV_BIN)/pip
 PYTEST := $(VENV_BIN)/pytest
-
-# Engine paths
-ENGINE_DIR := rpi/engine
 ENGINE_SRC := $(ENGINE_DIR)/src
 ENGINE_TESTS := $(ENGINE_DIR)/tests
 ENGINE_CONFIG := $(ENGINE_DIR)/config.yaml
@@ -49,7 +47,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(YELLOW)%-15s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(GREEN)Virtual Environment Notes:$(NC)"
-	@echo "  All Python operations are performed within .venv/"
+	@echo "  All Python operations are performed within rpi/engine/.venv/"
 	@echo "  Run 'make setup' first if this is a fresh clone"
 	@echo ""
 

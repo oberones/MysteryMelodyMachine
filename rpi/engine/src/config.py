@@ -5,6 +5,7 @@ import yaml
 
 class MidiConfig(BaseModel):
     input_port: str = "auto"
+    output_port: Optional[str] = None  # Optional MIDI output port
     channel: int = 1
 
 class SequencerConfig(BaseModel):
