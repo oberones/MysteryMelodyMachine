@@ -230,15 +230,15 @@ MVP chooses only the messages required for existing animations.
 ---
 ## 13. Development Phases & Milestones
 ### Phase 0: Scaffold
-- [ ] Create `rpi/engine/` structure, `pyproject.toml` or `requirements.txt`.
-- [ ] Implement config loader & logging skeleton.
+- [X] Create `rpi/engine/` structure, `pyproject.toml` or `requirements.txt`.
+- [X] Implement config loader & logging skeleton.
 
 ### Phase 1: MIDI Input & Routing
-- [ ] Open port, map raw Note/CC to semantic events (print logs).
+- [X] Open port, map raw Note/CC to semantic events (print logs).
 
 ### Phase 2: State Model + Sequencer Skeleton
-- [ ] Core state container with change listeners.
-- [ ] Sequencer tick with static BPM & step playback (no probability yet).
+- [X] Core state container with change listeners.
+- [X] Sequencer tick with static BPM & step playback (no probability yet).
 
 ### Phase 3: Scale & Probability
 - [ ] Add probability per step, density gating.
