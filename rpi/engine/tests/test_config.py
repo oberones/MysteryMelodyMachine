@@ -1,7 +1,8 @@
 from config import load_config, RootConfig
 
+
 def test_load_config():
-    cfg = load_config("config.yaml")
+    cfg = load_config("rpi/engine/config.yaml")
     assert isinstance(cfg, RootConfig)
     assert cfg.sequencer.steps == 8
     assert cfg.synth.backend == "supercollider"

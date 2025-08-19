@@ -2,7 +2,8 @@ midi:
   input_port: auto
   channel: 1
 mapping:
-  buttons: {}
+  buttons:
+    "60-69": trigger_step
   ccs:
     "20": tempo
     "21": filter_cutoff
