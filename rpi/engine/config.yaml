@@ -1,7 +1,7 @@
 midi:
-  input_port: auto
-  output_port: auto  # Set to "auto" or specific port name to enable MIDI output
-  channel: 1
+  input_port: "RK006 IN_ALL"
+  output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
+  channel: 10
 mapping:
   buttons:
     "60-69": trigger_step
