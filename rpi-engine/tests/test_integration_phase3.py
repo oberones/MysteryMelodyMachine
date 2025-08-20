@@ -24,8 +24,8 @@ class TestMidiOutput:
         assert null_output.send_control_change(1, 64) is True
         null_output.close()  # Should not raise
     
-    @patch('src.midi_out.mido.get_output_names')
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.get_output_names')
+    @patch('midi_out.mido.open_output')
     def test_midi_output_creation_success(self, mock_open, mock_get_names):
         """Test successful MIDI output creation."""
         mock_get_names.return_value = ['Test Port 1', 'Test Port 2']
@@ -37,7 +37,7 @@ class TestMidiOutput:
         assert output.is_connected
         mock_open.assert_called_once_with('Test Port 1')
     
-    @patch('src.midi_out.mido.get_output_names')
+    @patch('midi_out.mido.get_output_names')
     def test_midi_output_creation_disabled(self, mock_get_names):
         """Test MIDI output creation when disabled."""
         mock_get_names.return_value = ['Test Port 1']
@@ -45,8 +45,8 @@ class TestMidiOutput:
         output = MidiOutput.create(None, channel=1)
         assert output is None
     
-    @patch('src.midi_out.mido.get_output_names')
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.get_output_names')
+    @patch('midi_out.mido.open_output')
     def test_midi_output_auto_selection(self, mock_open, mock_get_names):
         """Test automatic port selection."""
         mock_get_names.return_value = ['Virtual Port', 'Physical Port', 'Loopback Port']
@@ -58,8 +58,8 @@ class TestMidiOutput:
         # Should select 'Physical Port' (non-virtual)
         mock_open.assert_called_once_with('Physical Port')
     
-    @patch('src.midi_out.mido.get_output_names')
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.get_output_names')
+    @patch('midi_out.mido.open_output')
     def test_midi_output_auto_fallback(self, mock_open, mock_get_names):
         """Test auto selection fallback to first available."""
         mock_get_names.return_value = ['Virtual Port Only']
@@ -70,7 +70,7 @@ class TestMidiOutput:
         assert output is not None
         mock_open.assert_called_once_with('Virtual Port Only')
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_midi_output_send_messages(self, mock_open):
         """Test sending MIDI messages."""
         mock_port = Mock()
@@ -110,7 +110,7 @@ class TestMidiOutput:
         assert sent_msg.control == 7
         assert sent_msg.value == 127
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_midi_output_send_failure_handling(self, mock_open):
         """Test handling of send failures."""
         mock_port = Mock()
@@ -124,7 +124,7 @@ class TestMidiOutput:
         assert result is False
         assert not output.is_connected  # Should mark as disconnected
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_midi_output_close(self, mock_open):
         """Test MIDI output closing."""
         mock_port = Mock()
@@ -137,7 +137,7 @@ class TestMidiOutput:
         mock_port.close.assert_called_once()
         assert not output.is_connected
     
-    @patch('src.midi_out.mido.get_output_names')
+    @patch('midi_out.mido.get_output_names')
     def test_get_available_ports(self, mock_get_names):
         """Test getting available output ports."""
         mock_get_names.return_value = ['Port 1', 'Port 2']
@@ -242,7 +242,7 @@ class TestPhase3Integration:
         mock_midi_output_class.create.return_value = None
         
         # Simulate the main engine setup
-        midi_output = mock_midi_output_class.create(config.midi.output_port, config.midi.channel)
+        midi_output = mock_midi_output_class.create(config.midi.output_port, config.midi.output_channel)
         from midi_out import NullMidiOutput
         if not midi_output:
             midi_output = NullMidiOutput()
@@ -275,7 +275,7 @@ class TestPhase3Integration:
         state = get_state()
         sequencer = create_sequencer(state, config.scales)
         
-        midi_output = mock_midi_output_class.create(config.midi.output_port, config.midi.channel)
+        midi_output = mock_midi_output_class.create(config.midi.output_port, config.midi.output_channel)
         scheduler = NoteScheduler(midi_output)
         
         assert midi_output.is_connected

@@ -163,7 +163,7 @@ class Sequencer:
         
         # Initialize clock and scale from state
         self._update_clock_from_state()
-        self._update_scale_from_state()
+        self._update_scale_from_state(force=True)  # Force immediate application during init
         
         # Set up clock callback
         self.clock.set_tick_callback(self._on_tick)
@@ -176,6 +176,9 @@ class Sequencer:
     
     def start(self):
         """Start the sequencer."""
+        # Generate note for the initial step (step 0)
+        self._generate_step_note(self._current_step)
+        
         self.clock.start()
         log.info("sequencer_started")
     
@@ -209,8 +212,9 @@ class Sequencer:
         """Apply the scale change to the scale mapper."""
         if 0 <= scale_index < len(self.available_scales):
             scale_name = self.available_scales[scale_index]
+            root_note = self.state.get('root_note', 60)  # Default to C4
             try:
-                self.scale_mapper.set_scale(scale_name)
+                self.scale_mapper.set_scale(scale_name, root_note=root_note)
                 log.info(f"scale_set name='{scale_name}' root={self.scale_mapper.root_note}")
             except ValueError as e:
                 log.error(f"Failed to set scale: {e}")
@@ -222,7 +226,7 @@ class Sequencer:
         """Handle state parameter changes."""
         if change.parameter in ('bpm', 'swing'):
             self._update_clock_from_state()
-        elif change.parameter == 'scale_index':
+        elif change.parameter in ('scale_index', 'root_note'):
             self._update_scale_from_state()
         elif change.parameter == 'sequence_length':
             log.debug(f"sequence_length_changed new_length={change.new_value}")
@@ -241,12 +245,12 @@ class Sequencer:
         """Advance to the next step and generate events."""
         sequence_length = self.state.get('sequence_length', 8)
         
-        # Bar boundary check for quantized changes
+        self._current_step = (self._current_step + 1) % sequence_length
+        
+        # Bar boundary check for quantized changes (after advancing)
         is_bar_boundary = self._current_step == 0
         if is_bar_boundary and self._pending_scale_index is not None:
             self._apply_scale_change(self._pending_scale_index)
-
-        self._current_step = (self._current_step + 1) % sequence_length
         
         self.state.set('step_position', self._current_step, source='sequencer')
         

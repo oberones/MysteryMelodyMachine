@@ -8,7 +8,7 @@ from midi_out import MidiOutput, NullMidiOutput, get_available_output_ports
 class TestMidiOutputUnit:
     """Unit tests for MidiOutput class."""
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_connection_success(self, mock_open):
         """Test successful MIDI port connection."""
         mock_port = Mock()
@@ -20,7 +20,7 @@ class TestMidiOutputUnit:
         assert output.channel == 2
         mock_open.assert_called_once_with('Test Port')
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_connection_failure(self, mock_open):
         """Test MIDI port connection failure."""
         mock_open.side_effect = Exception("Port not found")
@@ -29,8 +29,8 @@ class TestMidiOutputUnit:
         assert not output.is_connected
         assert output.port is None
     
-    @patch('src.midi_out.mido.get_output_names')
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.get_output_names')
+    @patch('midi_out.mido.open_output')
     def test_auto_port_selection_prefers_non_virtual(self, mock_open, mock_get_names):
         """Test auto port selection prefers non-virtual ports."""
         mock_get_names.return_value = ['Virtual MIDI', 'Hardware Synth', 'Loopback Port']
@@ -41,8 +41,8 @@ class TestMidiOutputUnit:
         assert output.port_name == 'Hardware Synth'
         mock_open.assert_called_once_with('Hardware Synth')
     
-    @patch('src.midi_out.mido.get_output_names')
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.get_output_names')
+    @patch('midi_out.mido.open_output')
     def test_auto_port_selection_fallback(self, mock_open, mock_get_names):
         """Test auto port selection falls back to any available port."""
         mock_get_names.return_value = ['Virtual Only']
@@ -53,7 +53,7 @@ class TestMidiOutputUnit:
         assert output.port_name == 'Virtual Only'
         mock_open.assert_called_once_with('Virtual Only')
     
-    @patch('src.midi_out.mido.get_output_names')
+    @patch('midi_out.mido.get_output_names')
     def test_auto_port_no_ports_available(self, mock_get_names):
         """Test auto port selection when no ports available."""
         mock_get_names.return_value = []
@@ -61,7 +61,7 @@ class TestMidiOutputUnit:
         output = MidiOutput('auto')
         assert not output.is_connected
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_ensure_connected_reconnection(self, mock_open):
         """Test reconnection logic when connection is lost."""
         mock_port = Mock()
@@ -78,7 +78,7 @@ class TestMidiOutputUnit:
         assert result is True
         assert output.is_connected
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_send_note_on_basic(self, mock_open):
         """Test basic note on sending."""
         mock_port = Mock()
@@ -95,7 +95,7 @@ class TestMidiOutputUnit:
         assert sent_msg.note == 64
         assert sent_msg.velocity == 100
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_send_note_on_zero_velocity_converts_to_note_off(self, mock_open):
         """Test that note on with velocity 0 becomes note off."""
         mock_port = Mock()
@@ -111,7 +111,7 @@ class TestMidiOutputUnit:
         assert sent_msg.note == 64
         assert sent_msg.velocity == 0
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_send_note_off_basic(self, mock_open):
         """Test basic note off sending."""
         mock_port = Mock()
@@ -128,7 +128,7 @@ class TestMidiOutputUnit:
         assert sent_msg.note == 64
         assert sent_msg.velocity == 64
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_send_control_change_basic(self, mock_open):
         """Test basic control change sending."""
         mock_port = Mock()
@@ -145,7 +145,7 @@ class TestMidiOutputUnit:
         assert sent_msg.control == 7
         assert sent_msg.value == 127
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_send_all_notes_off(self, mock_open):
         """Test all notes off message."""
         mock_port = Mock()
@@ -162,7 +162,7 @@ class TestMidiOutputUnit:
         assert sent_msg.control == 123  # All Notes Off
         assert sent_msg.value == 0
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_send_failure_marks_disconnected(self, mock_open):
         """Test that send failures mark connection as lost."""
         mock_port = Mock()
@@ -176,7 +176,7 @@ class TestMidiOutputUnit:
         assert result is False
         assert not output.is_connected
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_close_sends_all_notes_off(self, mock_open):
         """Test that closing sends all notes off."""
         mock_port = Mock()
@@ -195,7 +195,7 @@ class TestMidiOutputUnit:
         mock_port.close.assert_called_once()
         assert not output.is_connected
     
-    @patch('src.midi_out.mido.open_output')
+    @patch('midi_out.mido.open_output')
     def test_close_handles_exceptions(self, mock_open):
         """Test that close handles exceptions gracefully."""
         mock_port = Mock()

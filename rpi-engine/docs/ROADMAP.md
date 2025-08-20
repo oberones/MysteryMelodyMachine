@@ -102,7 +102,9 @@ USB MIDI  --->  |  MIDI In Adapter          |
 ```yaml
 midi:
   input_port: auto
-  channel: 1
+  output_port: auto  # Optional MIDI output port
+  input_channel: 10   # Channel for incoming MIDI (1-16)
+  output_channel: 1   # Channel for outgoing MIDI (1-16)
 mapping:
   buttons:
     60-71: trigger_step   # map notes range to generic trigger action
@@ -113,6 +115,7 @@ mapping:
     23: swing
     24: density
     25: master_volume
+    26: note_probability  # added in implementation
     50: sequence_length
     51: scale_select
     52: chaos_lock
