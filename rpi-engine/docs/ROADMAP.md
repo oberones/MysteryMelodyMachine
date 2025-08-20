@@ -252,33 +252,31 @@ MVP chooses only the messages required for existing animations.
 - [X] Add quantization for scale changes.
 
 ### Phase 5: Mutation Engine
-- [ ] Implement mutation engine to periodically change parameters.
+- [X] Implement mutation engine to periodically change parameters.
+- [X] Add BPM drift envelope + mutation scheduler.
+- [X] Logging of each mutation.
 
 ### Phase 6: Idle Mode
 - [ ] Implement idle mode detection and handling.
 - [ ] Implement scale mapper & switch scales via mapped CC.
 
-### Phase 5: Mutation & Drift
-- [ ] Add BPM drift envelope + mutation scheduler.
-- [ ] Logging of each mutation.
-
-### Phase 6: Backend Synthesis Integration
+### Phase 7: Backend Synthesis Integration
 - [ ] Implement simple synth backend (pyo or fluidsynth) for note triggering.
 - [ ] Parameter mapping (filter cutoff, reverb mix, volume).
 
-### Phase 7: LED Event Emission
+### Phase 8: LED Event Emission
 - [ ] Basic LED cue emitter (note, param, mode).
 - [ ] Idle mode LED event.
 
-### Phase 8: API & Metrics
+### Phase 9: API & Metrics
 - [ ] HTTP/JSON endpoint for current state & mutation history.
 - [ ] Prometheus metrics endpoint.
 
-### Phase 9: Hardening & Soak
+### Phase 10: Hardening & Soak
 - [ ] Reconnect logic, CPU/memory monitors.
 - [ ] Long-run soak test & performance tuning.
 
-### Phase 10: Polish
+### Phase 11: Polish
 - [ ] Preset save/load.
 - [ ] Config hot-reload (SIGHUP or file watcher).
 - [ ] CLI flags for overrides.

@@ -13,6 +13,7 @@ from logging_utils import configure_logging
 from state import get_state, reset_state
 from sequencer import create_sequencer, NoteEvent
 from action_handler import ActionHandler
+from mutation import create_mutation_engine
 
 
 @dataclass
@@ -116,6 +117,9 @@ def main(argv: Optional[list[str]] = None):
     # Create action handler
     action_handler = ActionHandler(state, sequencer)
     
+    # Create mutation engine
+    mutation_engine = create_mutation_engine(cfg.mutation, state)
+    
     # Initialize MIDI output (optional)
     midi_output = MidiOutput.create(cfg.midi.output_port, cfg.midi.output_channel)
     if midi_output:
@@ -159,19 +163,29 @@ def main(argv: Optional[list[str]] = None):
     # Start sequencer
     sequencer.start()
     log.info("sequencer_started")
+    
+    # Start mutation engine
+    mutation_engine.start()
+    log.info("mutation_engine_started")
 
     try:
         while True:
             time.sleep(1.0)
+            # Check for mutations periodically (alternative to threading)
+            mutation_engine.maybe_mutate()
+            
             # Log current state periodically for debugging
             if log.isEnabledFor(logging.DEBUG):
                 current_state = state.get_all()
+                mutation_stats = mutation_engine.get_stats()
                 log.debug(f"state_snapshot {current_state}")
+                log.debug(f"mutation_stats {mutation_stats}")
     except KeyboardInterrupt:
         log.info("shutdown signal=keyboard_interrupt")
     finally:
         try:
             sequencer.stop()
+            mutation_engine.stop()
             note_scheduler.stop()
             midi.close()
             if midi_output:
