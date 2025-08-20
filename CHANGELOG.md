@@ -1,3 +1,9 @@
+## v0.3.0 (2025-08-20)
+
+### Feat
+
+- add support for scale and probability changes
+
 ## v0.2.0 (2025-08-19)
 
 ### Feat
