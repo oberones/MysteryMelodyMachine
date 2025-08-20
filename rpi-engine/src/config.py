@@ -15,6 +15,9 @@ class SequencerConfig(BaseModel):
     swing: float = 0.12
     density: float = 0.85
     quantize_scale_changes: str = Field("bar", pattern=r"^(immediate|bar)$")
+    # Phase 5.5 features
+    step_pattern: Optional[str] = None
+    direction_pattern: str = "forward"
 
 class MutationConfig(BaseModel):
     interval_min_s: int = 120

@@ -53,6 +53,11 @@ class State:
             'filter_cutoff': 64,
             'reverb_mix': 32,
             'master_volume': 100,
+            # Phase 5.5: Enhanced probability and rhythm patterns
+            'step_probabilities': None,  # Array of per-step probabilities (fallback to note_probability if None)
+            'step_pattern': None,  # Array of booleans for step activation (fallback to even-step pattern if None)
+            'base_velocity': 80,  # Base velocity for notes
+            'velocity_range': 40,  # Range for velocity variation (+/- from base)
             'mode': 0,
             'palette': 0,
             'idle_mode': False,

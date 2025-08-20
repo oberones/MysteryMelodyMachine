@@ -2,7 +2,7 @@ midi:
   input_port: "RK006 IN_ALL"
   output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
   input_channel: 1
-  output_channel: 14
+  output_channel: 10
 mapping:
   buttons:
     "60-69": trigger_step
@@ -27,6 +27,9 @@ sequencer:
   swing: 0.12
   density: 0.85
   quantize_scale_changes: bar
+  step_pattern: syncopated
+  direction_pattern: random
+
 scales:
   - major
   - minor
@@ -37,6 +40,7 @@ scales:
   - dorian
   - locrian
   - chromatic
+
 mutation:
   interval_min_s: 30
   interval_max_s: 60

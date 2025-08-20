@@ -259,3 +259,340 @@ def test_sequence_length_change_handling(state):
     current_step = state.get('step_position')
     sequence_length = state.get('sequence_length')
     assert 0 <= current_step < sequence_length
+
+
+# Phase 5.5 Tests: Enhanced Probability & Rhythm Patterns
+
+def test_set_step_probabilities(state):
+    """Test setting per-step probability arrays."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Test valid probabilities
+    probs = [0.9, 0.5, 0.1, 0.8, 0.3, 0.7, 0.2, 0.6]
+    sequencer.set_step_probabilities(probs)
+    
+    stored_probs = state.get('step_probabilities')
+    assert stored_probs == probs
+    
+    # Test probability clamping
+    invalid_probs = [-0.5, 1.5, 0.5, 2.0]
+    sequencer.set_step_probabilities(invalid_probs)
+    
+    stored_probs = state.get('step_probabilities')
+    assert stored_probs == [0.0, 1.0, 0.5, 1.0]  # Clamped to valid range
+    
+    # Test invalid type handling
+    mixed_probs = [0.5, "invalid", 0.7, None]
+    sequencer.set_step_probabilities(mixed_probs)
+    
+    stored_probs = state.get('step_probabilities')
+    assert stored_probs == [0.5, 0.5, 0.7, 0.5]  # Invalid values become 0.5
+
+
+def test_set_step_pattern(state):
+    """Test setting step activation patterns."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Test valid pattern
+    pattern = [True, False, True, True, False, False, True, False]
+    sequencer.set_step_pattern(pattern)
+    
+    stored_pattern = state.get('step_pattern')
+    assert stored_pattern == pattern
+    
+    # Test invalid type handling
+    invalid_pattern = [True, "invalid", False, 1, 0]
+    sequencer.set_step_pattern(invalid_pattern)
+    
+    stored_pattern = state.get('step_pattern')
+    assert stored_pattern == [True, False, False, False, False]  # Invalid values become False
+
+
+def test_set_velocity_params(state):
+    """Test setting velocity parameters."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Test valid parameters
+    sequencer.set_velocity_params(base_velocity=100, velocity_range=30)
+    
+    assert state.get('base_velocity') == 100
+    assert state.get('velocity_range') == 30
+    
+    # Test clamping
+    sequencer.set_velocity_params(base_velocity=200, velocity_range=-10)
+    
+    assert state.get('base_velocity') == 127  # Clamped to max MIDI
+    assert state.get('velocity_range') == 0   # Clamped to minimum
+
+
+def test_pattern_presets(state):
+    """Test pattern preset functionality."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Test known presets
+    four_on_floor = sequencer.get_pattern_preset('four_on_floor')
+    assert four_on_floor == [True, False, False, False, True, False, False, False]
+    
+    offbeat = sequencer.get_pattern_preset('offbeat')
+    assert offbeat == [False, True, False, True, False, True, False, True]
+    
+    all_on = sequencer.get_pattern_preset('all_on')
+    assert all_on == [True] * 8
+    
+    # Test unknown preset (should return default)
+    unknown = sequencer.get_pattern_preset('nonexistent')
+    assert unknown == [True, False, True, False, True, False, True, False]  # every_other default
+
+
+def test_probability_presets(state):
+    """Test probability preset functionality."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Test uniform preset
+    uniform = sequencer.get_probability_preset('uniform', length=4)
+    assert uniform == [0.9, 0.9, 0.9, 0.9]
+    
+    # Test crescendo preset
+    crescendo = sequencer.get_probability_preset('crescendo', length=4)
+    assert len(crescendo) == 4
+    assert crescendo[0] < crescendo[-1]  # Should increase
+    
+    # Test peaks preset
+    peaks = sequencer.get_probability_preset('peaks', length=8)
+    assert peaks[0] == 0.9  # Peak at step 0
+    assert peaks[4] == 0.9  # Peak at step 4
+    assert peaks[1] == 0.4  # Valley at step 1
+    
+    # Test unknown preset (should return default)
+    unknown = sequencer.get_probability_preset('nonexistent', length=4)
+    assert unknown == [0.9, 0.9, 0.9, 0.9]  # uniform default
+
+
+def test_enhanced_step_note_generation_with_arrays(state):
+    """Test note generation with per-step probabilities and patterns."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Set up per-step probabilities and pattern
+    step_probs = [1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0]  # Certainty for testing
+    step_pattern = [True, True, True, True, False, False, False, False]  # Only first 4 steps active
+    
+    sequencer.set_step_probabilities(step_probs)
+    sequencer.set_step_pattern(step_pattern)
+    sequencer.set_velocity_params(base_velocity=64, velocity_range=32)
+    
+    generated_notes = []
+    
+    def capture_note(note_event):
+        generated_notes.append(note_event)
+    
+    sequencer.set_note_callback(capture_note)
+    
+    # Set density to 1.0 to ensure density doesn't gate
+    state.set('density', 1.0)
+    
+    # Generate notes for all steps
+    for step in range(8):
+        sequencer._generate_step_note(step)
+    
+    # Should have notes only for steps 0 and 2 (pattern active + prob 1.0)
+    # Steps 1,3 have prob 0.0, steps 4-7 have pattern inactive
+    assert len(generated_notes) == 2
+    assert generated_notes[0].step == 0
+    assert generated_notes[1].step == 2
+    
+    # Check velocity variation
+    for note in generated_notes:
+        assert 32 <= note.velocity <= 96  # base 64 +/- range 32
+
+
+def test_backward_compatibility_fallbacks(state):
+    """Test that sequencer falls back to old behavior when new parameters are None."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Ensure new parameters are None (default state)
+    assert state.get('step_probabilities') is None
+    assert state.get('step_pattern') is None
+    
+    # Set old-style parameters
+    state.set('note_probability', 1.0)
+    state.set('density', 1.0)
+    
+    generated_notes = []
+    
+    def capture_note(note_event):
+        generated_notes.append(note_event)
+    
+    sequencer.set_note_callback(capture_note)
+    
+    # Generate notes for 8 steps
+    for step in range(8):
+        sequencer._generate_step_note(step)
+    
+    # Should use old behavior: even steps only (0, 2, 4, 6)
+    assert len(generated_notes) == 4
+    expected_steps = [0, 2, 4, 6]
+    actual_steps = [note.step for note in generated_notes]
+    assert actual_steps == expected_steps
+
+
+def test_direction_pattern_setting(state):
+    """Test setting direction patterns."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Test valid direction patterns
+    valid_directions = ['forward', 'backward', 'ping_pong', 'random']
+    
+    for direction in valid_directions:
+        sequencer.set_direction_pattern(direction)
+        assert state.get('direction_pattern') == direction
+    
+    # Test invalid direction - should default to forward
+    sequencer.set_direction_pattern('invalid_direction')
+    assert state.get('direction_pattern') == 'forward'
+
+
+def test_direction_preset_validation(state):
+    """Test direction preset validation."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Test valid presets
+    valid_directions = ['forward', 'backward', 'ping_pong', 'random']
+    for direction in valid_directions:
+        result = sequencer.get_direction_preset(direction)
+        assert result == direction
+    
+    # Test invalid preset - should return 'forward'
+    result = sequencer.get_direction_preset('invalid')
+    assert result == 'forward'
+
+
+def test_forward_direction_pattern(state):
+    """Test forward direction pattern (default behavior)."""
+    sequencer = Sequencer(state, ['major'])
+    sequencer.set_direction_pattern('forward')
+    
+    sequence_length = 4
+    state.set('sequence_length', sequence_length)
+    
+    # Test forward progression
+    current_step = 0
+    expected_sequence = [1, 2, 3, 0, 1, 2, 3, 0]
+    
+    for expected_next in expected_sequence:
+        next_step = sequencer._get_next_step(current_step, sequence_length)
+        assert next_step == expected_next
+        current_step = next_step
+
+
+def test_backward_direction_pattern(state):
+    """Test backward direction pattern."""
+    sequencer = Sequencer(state, ['major'])
+    sequencer.set_direction_pattern('backward')
+    
+    sequence_length = 4
+    state.set('sequence_length', sequence_length)
+    
+    # Test backward progression
+    current_step = 0
+    expected_sequence = [3, 2, 1, 0, 3, 2, 1, 0]
+    
+    for expected_next in expected_sequence:
+        next_step = sequencer._get_next_step(current_step, sequence_length)
+        assert next_step == expected_next
+        current_step = next_step
+
+
+def test_ping_pong_direction_pattern(state):
+    """Test ping-pong direction pattern."""
+    sequencer = Sequencer(state, ['major'])
+    sequencer.set_direction_pattern('ping_pong')
+    
+    sequence_length = 4
+    state.set('sequence_length', sequence_length)
+    
+    # Test ping-pong progression: should bounce at boundaries
+    current_step = 0
+    sequence = []
+    
+    for _ in range(10):  # Generate enough steps to see bouncing
+        next_step = sequencer._get_next_step(current_step, sequence_length)
+        sequence.append(next_step)
+        current_step = next_step
+    
+    # Should see pattern like: 1, 2, 3, 2, 1, 0, 1, 2, 3, 2
+    assert sequence[0] == 1  # Forward from 0
+    assert sequence[1] == 2  # Forward from 1
+    assert sequence[2] == 3  # Forward from 2
+    assert sequence[3] == 2  # Bounce back from 3
+    assert sequence[4] == 1  # Continue backward
+    assert sequence[5] == 0  # Continue backward
+    assert sequence[6] == 1  # Bounce forward from 0
+
+
+def test_random_direction_pattern(state):
+    """Test random direction pattern."""
+    sequencer = Sequencer(state, ['major'])
+    sequencer.set_direction_pattern('random')
+    
+    sequence_length = 4
+    state.set('sequence_length', sequence_length)
+    
+    # Test random progression
+    current_step = 0
+    sequence = []
+    
+    for _ in range(20):  # Generate many steps to test randomness
+        next_step = sequencer._get_next_step(current_step, sequence_length)
+        sequence.append(next_step)
+        
+        # Should never stay on the same step
+        assert next_step != current_step
+        # Should always be within bounds
+        assert 0 <= next_step < sequence_length
+        
+        current_step = next_step
+    
+    # With 20 random steps, we should see variety (not just one value)
+    unique_steps = set(sequence)
+    assert len(unique_steps) > 1  # Should visit multiple different steps
+
+
+def test_direction_pattern_state_changes(state):
+    """Test that direction pattern changes update internal state."""
+    sequencer = Sequencer(state, ['major'])
+    
+    # Test forward -> backward transition
+    sequencer.set_direction_pattern('forward')
+    assert sequencer._ping_pong_direction == 1
+    
+    sequencer.set_direction_pattern('backward')
+    assert sequencer._ping_pong_direction == -1
+    
+    # Test ping_pong initialization
+    sequencer.set_direction_pattern('ping_pong')
+    assert sequencer._ping_pong_direction == 1
+
+
+def test_direction_pattern_advance_step_integration(state):
+    """Test that _advance_step uses direction patterns correctly."""
+    sequencer = Sequencer(state, ['major'])
+    
+    state.set('sequence_length', 3)
+    sequencer._current_step = 0
+    
+    # Test forward advancement
+    sequencer.set_direction_pattern('forward')
+    sequencer._advance_step()
+    assert sequencer._current_step == 1
+    
+    # Test backward advancement
+    sequencer.set_direction_pattern('backward')
+    sequencer._current_step = 1
+    sequencer._advance_step()
+    assert sequencer._current_step == 0
+    
+    # Test ping_pong advancement
+    sequencer.set_direction_pattern('ping_pong')
+    sequencer._current_step = 0
+    sequencer._advance_step()
+    assert sequencer._current_step == 1

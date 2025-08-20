@@ -86,7 +86,7 @@ class NoteScheduler:
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Mystery Music Engine Phase 2")
-    p.add_argument("--config", default="rpi/engine/config.yaml", help="Path to config YAML")
+    p.add_argument("--config", default="config.yaml", help="Path to config YAML")
     p.add_argument("--log-level", default=None, help="Override log level (DEBUG/INFO/...)")
     return p.parse_args(argv)
 
@@ -97,8 +97,59 @@ def main(argv: Optional[list[str]] = None):
     level = args.log_level or cfg.logging.level
     configure_logging(level)
     log = logging.getLogger("engine")
-    log.info("engine_start phase=3 version=0.3.0")
-    log.debug("config_loaded json=%s", cfg.json())
+    log.info("engine_start phase=5.5 version=0.5.5")
+    log.debug("config_loaded json=%s", cfg.model_dump_json())
+
+    # Log all configuration values for transparency
+    log.info("=== CONFIGURATION SUMMARY ===")
+    log.info(f"config_file={args.config}")
+    log.info(f"log_level={level}")
+    
+    # MIDI Configuration
+    log.info(f"midi_input_port={cfg.midi.input_port}")
+    log.info(f"midi_output_port={cfg.midi.output_port}")
+    log.info(f"midi_input_channel={cfg.midi.input_channel}")
+    log.info(f"midi_output_channel={cfg.midi.output_channel}")
+    
+    # Sequencer Configuration
+    log.info(f"sequencer_steps={cfg.sequencer.steps}")
+    log.info(f"sequencer_bpm={cfg.sequencer.bpm}")
+    log.info(f"sequencer_swing={cfg.sequencer.swing}")
+    log.info(f"sequencer_density={cfg.sequencer.density}")
+    log.info(f"sequencer_quantize_scale_changes={cfg.sequencer.quantize_scale_changes}")
+    
+    # Phase 5.5 Sequencer Features
+    log.info(f"sequencer_step_pattern={cfg.sequencer.step_pattern}")
+    log.info(f"sequencer_direction_pattern={cfg.sequencer.direction_pattern}")
+    
+    # Scales
+    log.info(f"available_scales={cfg.scales}")
+    
+    # Mutation Configuration
+    log.info(f"mutation_interval_min_s={cfg.mutation.interval_min_s}")
+    log.info(f"mutation_interval_max_s={cfg.mutation.interval_max_s}")
+    log.info(f"mutation_max_changes_per_cycle={cfg.mutation.max_changes_per_cycle}")
+    
+    # Idle Configuration
+    log.info(f"idle_timeout_ms={cfg.idle.timeout_ms}")
+    log.info(f"idle_ambient_profile={cfg.idle.ambient_profile}")
+    log.info(f"idle_fade_in_ms={cfg.idle.fade_in_ms}")
+    log.info(f"idle_fade_out_ms={cfg.idle.fade_out_ms}")
+    
+    # Synth Configuration
+    log.info(f"synth_backend={cfg.synth.backend}")
+    log.info(f"synth_voices={cfg.synth.voices}")
+    
+    # API Configuration
+    log.info(f"api_enabled={cfg.api.enabled}")
+    log.info(f"api_port={cfg.api.port}")
+    
+    # Mapping Configuration Summary
+    button_mappings = list(cfg.mapping.get('buttons', {}).keys()) if cfg.mapping else []
+    cc_mappings = list(cfg.mapping.get('ccs', {}).keys()) if cfg.mapping else []
+    log.info(f"button_mappings={button_mappings}")
+    log.info(f"cc_mappings={cc_mappings}")
+    log.info("=== END CONFIGURATION ===")
 
     # Initialize state and sequencer
     state = get_state()
@@ -113,6 +164,22 @@ def main(argv: Optional[list[str]] = None):
     
     # Create sequencer
     sequencer = create_sequencer(state, cfg.scales)
+    
+    # Apply Phase 5.5 configuration if present
+    if cfg.sequencer.step_pattern:
+        try:
+            pattern = sequencer.get_pattern_preset(cfg.sequencer.step_pattern)
+            sequencer.set_step_pattern(pattern)
+            log.info(f"applied_step_pattern={cfg.sequencer.step_pattern}")
+        except Exception as e:
+            log.warning(f"failed_to_apply_step_pattern={cfg.sequencer.step_pattern} error={e}")
+    
+    if cfg.sequencer.direction_pattern and cfg.sequencer.direction_pattern != 'forward':
+        try:
+            sequencer.set_direction_pattern(cfg.sequencer.direction_pattern)
+            log.info(f"applied_direction_pattern={cfg.sequencer.direction_pattern}")
+        except Exception as e:
+            log.warning(f"failed_to_apply_direction_pattern={cfg.sequencer.direction_pattern} error={e}")
     
     # Create action handler
     action_handler = ActionHandler(state, sequencer)

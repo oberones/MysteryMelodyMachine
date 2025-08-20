@@ -256,6 +256,12 @@ MVP chooses only the messages required for existing animations.
 - [X] Add BPM drift envelope + mutation scheduler.
 - [X] Logging of each mutation.
 
+### Phase 5.5: Enhanced Probability & Rhythm Patterns
+- [X] Implement per-step probability arrays instead of global note_probability.
+- [X] Add configurable step patterns instead of hardcoded even-step activation.
+- [X] Add velocity variation based on probability values.
+- [X] Add direction patterns for sequencer playback (forward, backward, ping-pong, random).
+
 ### Phase 6: Idle Mode
 - [ ] Implement idle mode detection and handling.
 - [ ] Implement scale mapper & switch scales via mapped CC.
