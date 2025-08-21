@@ -14,6 +14,7 @@ from state import get_state, reset_state
 from sequencer import create_sequencer, NoteEvent
 from action_handler import ActionHandler
 from mutation import create_mutation_engine
+from idle import create_idle_manager
 
 
 @dataclass
@@ -187,6 +188,13 @@ def main(argv: Optional[list[str]] = None):
     # Create mutation engine
     mutation_engine = create_mutation_engine(cfg.mutation, state)
     
+    # Create idle manager
+    idle_manager = create_idle_manager(cfg.idle, state)
+    
+    # Connect idle manager to action handler and mutation engine
+    action_handler.set_idle_manager(idle_manager)
+    mutation_engine.set_idle_manager(idle_manager)
+    
     # Initialize MIDI output (optional)
     midi_output = MidiOutput.create(cfg.midi.output_port, cfg.midi.output_channel)
     if midi_output:
@@ -234,6 +242,10 @@ def main(argv: Optional[list[str]] = None):
     # Start mutation engine
     mutation_engine.start()
     log.info("mutation_engine_started")
+    
+    # Start idle manager
+    idle_manager.start()
+    log.info("idle_manager_started")
 
     try:
         while True:
@@ -245,14 +257,17 @@ def main(argv: Optional[list[str]] = None):
             if log.isEnabledFor(logging.DEBUG):
                 current_state = state.get_all()
                 mutation_stats = mutation_engine.get_stats()
+                idle_status = idle_manager.get_status()
                 log.debug(f"state_snapshot {current_state}")
                 log.debug(f"mutation_stats {mutation_stats}")
+                log.debug(f"idle_status {idle_status}")
     except KeyboardInterrupt:
         log.info("shutdown signal=keyboard_interrupt")
     finally:
         try:
             sequencer.stop()
             mutation_engine.stop()
+            idle_manager.stop()
             note_scheduler.stop()
             midi.close()
             if midi_output:

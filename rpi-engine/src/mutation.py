@@ -1,6 +1,7 @@
 """Mutation Engine for periodic parameter changes.
 
 Phase 5: Implements scheduled mild parameter perturbations every 2-4 minutes.
+Phase 6: Respects idle mode - mutations enabled when idle, disabled when active.
 Provides weighted random parameter selection and bounded delta application.
 """
 
@@ -9,10 +10,13 @@ import random
 import time
 import threading
 import logging
-from typing import Dict, List, Callable, Optional, Tuple
+from typing import Dict, List, Callable, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 from config import MutationConfig
 from state import State, StateChange
+
+if TYPE_CHECKING:
+    from idle import IdleManager
 
 log = logging.getLogger(__name__)
 
@@ -48,6 +52,7 @@ class MutationEngine:
     
     Schedules random parameter changes based on weighted rules.
     Maintains history of mutations for logging and analysis.
+    Phase 6: Respects idle mode - only mutates when system is idle.
     """
     
     def __init__(self, config: MutationConfig, state: State):
@@ -65,6 +70,10 @@ class MutationEngine:
         
         # State listener for logging changes
         self._mutation_listener: Optional[Callable[[StateChange], None]] = None
+        
+        # Idle mode integration
+        self._idle_manager: Optional[IdleManager] = None
+        self._mutations_enabled = False  # Start disabled until idle manager indicates idle state
         
         # Initialize default mutation rules
         self._init_default_rules()
@@ -155,6 +164,28 @@ class MutationEngine:
                     return True
             return False
     
+    def set_idle_manager(self, idle_manager: IdleManager):
+        """Set the idle manager for idle mode awareness."""
+        self._idle_manager = idle_manager
+        # Register callback to track idle state changes
+        idle_manager.add_idle_state_callback(self._on_idle_state_change)
+        log.debug("mutation_engine_idle_integration_enabled")
+    
+    def _on_idle_state_change(self, is_idle: bool):
+        """Handle idle state changes."""
+        with self._lock:
+            old_enabled = self._mutations_enabled
+            self._mutations_enabled = is_idle
+            
+            if old_enabled != self._mutations_enabled:
+                status = "enabled" if self._mutations_enabled else "disabled"
+                log.info(f"mutations_{status} idle_state={is_idle}")
+    
+    def are_mutations_enabled(self) -> bool:
+        """Check if mutations are currently enabled."""
+        with self._lock:
+            return self._mutations_enabled
+    
     def start(self):
         """Start the mutation engine thread."""
         if self._running:
@@ -222,6 +253,7 @@ class MutationEngine:
             
             return {
                 "running": self._running,
+                "mutations_enabled": self._mutations_enabled,
                 "total_mutations": len(self._history),
                 "rules_count": len(self._rules),
                 "time_to_next_mutation_s": time_to_next,
@@ -252,6 +284,12 @@ class MutationEngine:
     def _perform_mutation_cycle(self):
         """Perform a complete mutation cycle."""
         with self._lock:
+            # Check if mutations are enabled (idle mode)
+            if not self._mutations_enabled:
+                log.debug("mutation_cycle_skipped reason=mutations_disabled")
+                self._schedule_next_mutation()
+                return
+            
             if not self._rules:
                 log.warning("mutation_cycle_skipped reason=no_rules")
                 self._schedule_next_mutation()

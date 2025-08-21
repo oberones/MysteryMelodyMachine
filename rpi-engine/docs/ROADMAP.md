@@ -263,26 +263,23 @@ MVP chooses only the messages required for existing animations.
 - [X] Add direction patterns for sequencer playback (forward, backward, ping-pong, random).
 
 ### Phase 6: Idle Mode
-- [ ] Implement idle mode detection and handling.
-- [ ] Implement scale mapper & switch scales via mapped CC.
+- [X] Implement idle mode detection and handling.
+- [X] Mutations should be enabled when the system is idle and disabled when midi input is received
 
-### Phase 7: Backend Synthesis Integration
-- [ ] Implement simple synth backend (pyo or fluidsynth) for note triggering.
-- [ ] Parameter mapping (filter cutoff, reverb mix, volume).
-
-### Phase 8: LED Event Emission
+### Phase 7: LED Event Emission
 - [ ] Basic LED cue emitter (note, param, mode).
-- [ ] Idle mode LED event.
+- [ ] Idle mode LED event with lower brightness
 
-### Phase 9: API & Metrics
+### Phase 8: API & Metrics
 - [ ] HTTP/JSON endpoint for current state & mutation history.
 - [ ] Prometheus metrics endpoint.
 
-### Phase 10: Hardening & Soak
+### Phase 9: Hardening & Soak
 - [ ] Reconnect logic, CPU/memory monitors.
-- [ ] Long-run soak test & performance tuning.
+- [ ] Long-run soak test with performance tuning.
+- [ ] Create/run performance and stress tests to ensure reliability.
 
-### Phase 11: Polish
+### Phase 10: Polish
 - [ ] Preset save/load.
 - [ ] Config hot-reload (SIGHUP or file watcher).
 - [ ] CLI flags for overrides.
@@ -290,34 +287,33 @@ MVP chooses only the messages required for existing animations.
 ---
 ## 14. Directory Structure (Proposed)
 ```
-rpi/
-  engine/
-    src/
-      main.py
-      config.py
-      midi_in.py
-      router.py
-      state.py
-      sequencer.py
-      scale_mapper.py
-      mutation.py
-      synth_adapter.py
-      backend_pyo.py
-      backend_pd.py
-      backend_sc.py
-      led_bus.py
-      idle.py
-      logging_setup.py
-      metrics.py
-      api.py
-      util/time.py
-    tests/
-      test_mapping.py
-      test_scale.py
-      test_mutation.py
-      test_sequencer.py
-    config.yaml (sample)
-  requirements.txt or pyproject.toml
+rpi-engine/
+  src/
+    main.py
+    config.py
+    midi_in.py
+    router.py
+    state.py
+    sequencer.py
+    scale_mapper.py
+    mutation.py
+    synth_adapter.py
+    backend_pyo.py
+    backend_pd.py
+    backend_sc.py
+    led_bus.py
+    idle.py
+    logging_setup.py
+    metrics.py
+    api.py
+    util/time.py
+  tests/
+    test_mapping.py
+    test_scale.py
+    test_mutation.py
+    test_sequencer.py
+  config.yaml (sample)
+requirements.txt or pyproject.toml
 ```
 
 ---
@@ -402,34 +398,13 @@ Resolved Decisions:
 9. Runtime Expectation: ≥ 8 hr daily (design for 10+ hr soak)
 10. License: Align with firmware (TBD – please choose e.g., MIT/Apache-2.0)
 
-Remaining Clarifications Needed:
-A. Exact target voice count (is 8 sufficient or prefer 12/16?).
-B. Acceptable CPU ceiling under load (retain 30% or adjust?).
-C. Preferred license (MIT vs Apache-2.0) to document.
-
 ---
-## 22. Immediate Next Steps
-- [ ] Decide backend & language layering choice (#1).
-- [ ] Answer open questions (#21).
-- [ ] Scaffold repo structure & sample `config.yaml`.
-- [ ] Implement Phase 0–1 (MIDI input + logging) and measure baseline latency.
-
----
-## 23. Acceptance Criteria v0.1.0
+## 22. Acceptance Criteria v0.1.0
 - Configurable via `config.yaml` (loaded & validated)
 - Receives MIDI from Teensy & logs semantic events
 - Basic sequencer producing timed note events (8 steps) with density & probability
 - Scale mapping functional (≥3 scales switchable by CC)
 - Mutation engine periodically altering at least one parameter
 - Idle mode transitions to ambient profile and back reliably
-- Synth backend plays audible notes with <10 ms latency
 - LED cue messages emitted (schema stable) or deferred by decision
 - 2 hr soak test passes (no unbounded growth, stable performance)
-
----
-All clarifications resolved (A–C). Proceed to scaffold codebase (Phase 0–1) with SuperCollider OSC integration and baseline sequencer.
-
-Updates Applied:
-- Voice count locked at 8 (expand via config later)
-- CPU budget target refined: aim <25% typical, alarm >40%
-- License: Apache-2.0 (align with firmware) — add `LICENSE` file at repo root

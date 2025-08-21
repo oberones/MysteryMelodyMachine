@@ -1,6 +1,6 @@
-# Mystery Music Engine (Phase 5.5)
+# Mystery Music Engine (Phase 6)
 
-Phase 5.5 implements enhanced probability & rhythm patterns with per-step control (see root `SPEC.md` + `docs/ROADMAP.md`).
+Phase 6 implements idle mode detection and management with automatic ambient profile switching (see root `SPEC.md` + `docs/ROADMAP.md`).
 
 ## Implemented
 
@@ -36,13 +36,21 @@ Phase 5.5 implements enhanced probability & rhythm patterns with per-step contro
 - BPM drift envelopes for organic tempo variation.
 - Mutation logging and state tracking.
 
-### Phase 5.5 (Enhanced Probability & Rhythm Patterns) ✨ **NEW**
+### Phase 5.5 (Enhanced Probability & Rhythm Patterns) ✨
 - **Per-step probability arrays** - Individual probability control for each step.
 - **Configurable step patterns** - Flexible rhythm patterns beyond hardcoded sequences.
 - **Direction patterns** - Multiple sequencer playback directions (forward, backward, ping-pong, random).
 - **Velocity variation** - Dynamic velocity based on probability values with randomness.
 - **Pattern & probability presets** - Ready-to-use rhythm and probability templates.
 - **Backward compatibility** - All existing configurations continue to work unchanged.
+
+### Phase 6 (Idle Mode) 🌙 **NEW**
+- **Automatic idle detection** - Tracks user interactions and enters idle mode after configurable timeout.
+- **Ambient profiles** - Pre-defined ambient sound profiles for idle mode (slow_fade, minimal, meditative).
+- **State preservation** - Saves active state when entering idle mode and restores it when exiting.
+- **Mutation integration** - Mutations only occur during idle periods, disabled during active use.
+- **Configurable behavior** - Timeout, profiles, and fade timing all configurable via YAML.
+- **Real-time monitoring** - Status tracking and callback system for integration with other components.
 
 ## Run
 
@@ -58,6 +66,11 @@ pip install -r requirements.txt
 # Run tests
 pytest tests -q
 
+# Run specific phase tests
+pytest tests/test_idle.py -v          # Phase 6: Idle mode tests
+pytest tests/test_mutation.py -v      # Phase 5: Mutation engine tests  
+pytest tests/test_sequencer.py -v     # Phase 5.5: Enhanced sequencer tests
+
 # Run engine
 python src/main.py --config config.yaml --log-level INFO
 
@@ -69,6 +82,12 @@ python demo_direction_patterns.py
 
 # Run configuration logging demo
 python demo_config_logging.py
+
+# Run idle mode demo (Phase 6 - shows idle detection and ambient profiles)
+python demo_idle_mode.py
+
+# Run mutation demo (shows mutation engine)
+python demo_mutation.py
 ```
 
 Example log lines:
@@ -79,11 +98,15 @@ ts=2025-08-20T12:00:01 level=DEBUG logger=sequencer msg=step_advance step=1 leng
 ts=2025-08-20T12:00:01 level=INFO logger=sequencer msg=step_probabilities_set length=8 values=[1.0, 0.8, 0.6, 0.4, 0.2, 0.6, 0.8, 1.0]
 ts=2025-08-20T12:00:01 level=INFO logger=sequencer msg=step_pattern_set length=8 pattern=[True, False, True, True, False, False, True, False]
 ts=2025-08-20T12:00:01 level=DEBUG logger=sequencer msg=note_generated step=0 note=60 velocity=95 step_prob=1.00
+ts=2025-08-20T12:00:30 level=INFO logger=idle msg=idle_mode_enter
+ts=2025-08-20T12:00:30 level=INFO logger=idle msg=idle_profile_applied profile=slow_fade params=[density, bpm, scale_index, reverb_mix, filter_cutoff, master_volume]
+ts=2025-08-20T12:00:45 level=INFO logger=idle msg=idle_mode_exit
+ts=2025-08-20T12:00:45 level=INFO logger=idle msg=idle_state_restored params=[density, bpm, scale_index, reverb_mix, filter_cutoff, master_volume]
 ```
 
 Set `ENGINE_DEBUG_TIMING=1` for extra timing debug categories (future phases).
 
-## Architecture (Phase 5.5)
+## Architecture (Phase 6)
 
 ```
 MIDI Input → Router → Action Handler → State Container
@@ -99,6 +122,12 @@ MIDI Input → Router → Action Handler → State Container
                               Scale Mapper → Note Generation
                                          ↓
                               Velocity Variation → Audio Output
+                                         
+Idle Manager ←──────────── Interaction Tracking
+     ↓
+Ambient Profiles → State Preservation/Restoration
+     ↓
+Mutation Engine (Idle-Aware) → Parameter Changes
 ```
 
 ## Key Components
@@ -111,6 +140,8 @@ MIDI Input → Router → Action Handler → State Container
 - **Probability Engine**: Per-step probability control with preset templates ✨
 - **Direction Engine**: Multiple sequencer playback directions (forward, backward, ping-pong, random) ✨
 - **Velocity Engine**: Dynamic velocity variation based on probability values ✨
+- **Idle Manager**: Automatic idle detection with ambient profile switching 🌙
+- **Mutation Engine**: Idle-aware parameter mutations for evolving soundscapes
 
 ## Current Capabilities
 
@@ -127,6 +158,8 @@ MIDI Input → Router → Action Handler → State Container
 - Configurable step patterns for flexible rhythm creation
 - Dynamic velocity variation based on probability values
 - Automated parameter mutations for evolving soundscapes
+- Automatic idle mode with ambient profiles and state preservation
+- Idle-aware mutations (only occur during idle periods)
 
 ## Configuration Parameters
 
@@ -157,6 +190,17 @@ MIDI Input → Router → Action Handler → State Container
 |-----------|------|-------|---------|-------------|
 | `scale_index` | int | 0-N | 0 | Index into available scales list |
 | `root_note` | int | 0-127 | 60 | Root note for scale (MIDI note number) |
+
+### Phase 6: Idle Mode & Mutations 🌙
+| Parameter | Type | Range | Default | Description |
+|-----------|------|-------|---------|-------------|
+| `idle.timeout_ms` | int | 1000+ | 30000 | Idle timeout in milliseconds (30s default) |
+| `idle.ambient_profile` | string | See Profiles | 'slow_fade' | Ambient profile to use in idle mode |
+| `idle.fade_in_ms` | int | 0+ | 4000 | Fade in duration for LED transitions |
+| `idle.fade_out_ms` | int | 0+ | 800 | Fade out duration for LED transitions |
+| `mutation.interval_min_s` | int | 1+ | 120 | Minimum mutation interval in seconds |
+| `mutation.interval_max_s` | int | 1+ | 240 | Maximum mutation interval in seconds |
+| `mutation.max_changes_per_cycle` | int | 0+ | 2 | Max parameter changes per mutation cycle |
 
 ## Pattern Presets 🎵
 
@@ -202,6 +246,37 @@ Use `sequencer.get_probability_preset(preset_name, length)` to get predefined pr
 | `alternating` | High/low alternating pattern | `[0.9, 0.3, 0.9, 0.3, 0.9, 0.3, 0.9, 0.3]` |
 | `random_low` | Random values in low range | `[0.2-0.6 random values]` |
 | `random_high` | Random values in high range | `[0.6-1.0 random values]` |
+
+## Idle Profiles 🌙
+
+Available ambient profiles for idle mode (configured via `idle.ambient_profile`):
+
+| Profile Name | Description | Characteristics |
+|--------------|-------------|-----------------|
+| `slow_fade` | Gentle ambient fade (default) | Reduced density (0.3), slower tempo (65 BPM), pentatonic scale, increased reverb, darker filter, quieter volume |
+| `minimal` | Ultra-minimal ambient | Very low density (0.15), very slow tempo (50 BPM), full reverb, very quiet |
+| `meditative` | Contemplative minor ambient | Medium density (0.4), minor scale, no swing, dark filter, moderate volume |
+
+**Behavior**: 
+- System automatically enters idle mode after configured timeout (default: 30 seconds)
+- Any MIDI interaction immediately exits idle mode and restores previous settings
+- Only parameters defined in the idle profile are changed/restored
+- Mutations are only active during idle mode
+
+## Configuration Example (config.yaml)
+
+```yaml
+idle:
+  timeout_ms: 30000          # 30 second timeout
+  ambient_profile: slow_fade # Choose: slow_fade, minimal, meditative  
+  fade_in_ms: 4000          # 4 second LED fade in
+  fade_out_ms: 800          # 0.8 second LED fade out
+
+mutation:
+  interval_min_s: 120       # 2 minute minimum between mutations
+  interval_max_s: 240       # 4 minute maximum between mutations  
+  max_changes_per_cycle: 2  # Max 2 parameters changed per mutation
+```
 
 ## Usage Examples
 
@@ -249,9 +324,46 @@ state.set('note_probability', 0.7)  # Applied to all steps when step_probabiliti
 # Hardcoded even-step pattern used when step_pattern is None
 ```
 
-## Next (Phase 6)
-- Idle mode detection and handling.
-- Additional scale mapping enhancements.
-- LED control integration with Teensy firmware.
+### Idle Mode Control (Phase 6) 🌙
+```python
+# Manual idle mode control (for testing/debugging)
+idle_manager.force_idle()    # Enter idle mode immediately
+idle_manager.force_active()  # Exit idle mode immediately
+
+# Monitor idle status
+status = idle_manager.get_status()
+print(f"Idle: {status['is_idle']}")
+print(f"Time to idle: {status['time_to_idle']:.1f}s")
+
+# Register for idle state change notifications
+def on_idle_change(is_idle):
+    print(f"Idle mode: {'ON' if is_idle else 'OFF'}")
+
+idle_manager.add_idle_state_callback(on_idle_change)
+```
+
+### Mutation Engine Control
+```python
+# Check if mutations are enabled (only when idle)
+enabled = mutation_engine.are_mutations_enabled()
+
+# Force a mutation (for testing - only works when enabled)
+mutation_engine.force_mutation()
+
+# Get mutation statistics
+stats = mutation_engine.get_stats()
+print(f"Total mutations: {stats['total_mutations']}")
+print(f"Next mutation in: {stats['time_to_next_mutation_s']:.1f}s")
+
+# Get mutation history
+history = mutation_engine.get_history(5)  # Last 5 mutations
+for event in history:
+    print(f"{event.parameter}: {event.old_value} → {event.new_value}")
+```
+
+## Next (Phase 7)
+- LED event emission for interaction feedback and idle state visualization.
+- Enhanced integration with Teensy firmware for visual feedback.
+- Additional ambient profiles and customization options.
 
 License: Apache-2.0

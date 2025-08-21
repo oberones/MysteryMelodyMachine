@@ -224,6 +224,9 @@ class TestMutationEngine:
     
     def test_force_mutation(self, engine, state):
         """Test forced mutation."""
+        # Enable mutations for testing (simulate idle state)
+        engine._mutations_enabled = True
+        
         initial_history_len = len(engine._history)
         
         # Force a mutation
@@ -234,6 +237,9 @@ class TestMutationEngine:
     
     def test_maybe_mutate_timing(self, engine):
         """Test maybe_mutate timing logic."""
+        # Enable mutations for testing (simulate idle state)
+        engine._mutations_enabled = True
+        
         # Set next mutation time in the past
         engine._next_mutation_time = time.time() - 1.0
         
@@ -252,16 +258,21 @@ class TestMutationEngine:
         
         assert isinstance(stats, dict)
         assert "running" in stats
+        assert "mutations_enabled" in stats
         assert "total_mutations" in stats
         assert "rules_count" in stats
         assert "time_to_next_mutation_s" in stats
         
         assert stats["running"] == engine._running
+        assert stats["mutations_enabled"] == engine._mutations_enabled
         assert stats["total_mutations"] == len(engine._history)
         assert stats["rules_count"] == len(engine._rules)
     
     def test_get_history(self, engine):
         """Test mutation history retrieval."""
+        # Enable mutations for testing (simulate idle state)
+        engine._mutations_enabled = True
+        
         # Get all history
         history = engine.get_history()
         assert len(history) == len(engine._history)
@@ -276,6 +287,9 @@ class TestMutationEngine:
     
     def test_state_listener(self, engine, state):
         """Test state change listening."""
+        # Enable mutations for testing (simulate idle state)
+        engine._mutations_enabled = True
+        
         # Track state changes
         changes = []
         
@@ -365,6 +379,9 @@ class TestMutationIntegration:
         state.set("reverb_mix", 32)
         
         engine = MutationEngine(config, state)
+        
+        # Enable mutations for testing (simulate idle state)
+        engine._mutations_enabled = True
         
         # Track state changes
         changes = []
