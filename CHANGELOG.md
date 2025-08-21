@@ -1,3 +1,10 @@
+## v0.4.0 (2025-08-20)
+
+### Feat
+
+- extend sequencer with more patterns, probability, and directions
+- add support for mutations
+
 ## v0.3.0 (2025-08-20)
 
 ### Feat
