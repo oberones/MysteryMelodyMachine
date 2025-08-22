@@ -1,19 +1,34 @@
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import yaml
+
+class MidiClockConfig(BaseModel):
+    """MIDI clock synchronization configuration."""
+    enabled: bool = False
+    send_start_stop: bool = True
+    send_song_position: bool = True
+
+class CCProfileConfig(BaseModel):
+    """CC profile configuration for external synths."""
+    active_profile: str = "korg_nts1_mk2"  # Default to NTS-1 MK2
+    parameter_smoothing: bool = True
+    cc_throttle_ms: int = 10  # Minimum time between CC messages
 
 class MidiConfig(BaseModel):
     input_port: str = "auto"
     output_port: Optional[str] = None  # Optional MIDI output port
     input_channel: int = 1
     output_channel: int = 1
+    clock: MidiClockConfig = MidiClockConfig()
+    cc_profile: CCProfileConfig = CCProfileConfig()
 
 class SequencerConfig(BaseModel):
     steps: int = 8
     bpm: float = 110.0
     swing: float = 0.12
     density: float = 0.85
+    gate_length: float = Field(0.8, ge=0.1, le=1.0)  # Note duration as fraction of step duration
     quantize_scale_changes: str = Field("bar", pattern=r"^(immediate|bar)$")
     # Phase 5.5 features
     step_pattern: Optional[str] = None
@@ -51,6 +66,7 @@ class RootConfig(BaseModel):
     synth: SynthConfig = SynthConfig()
     logging: LoggingConfig = LoggingConfig()
     api: ApiConfig = ApiConfig()
+    cc_profiles: Dict[str, Any] = Field(default_factory=dict)  # Custom CC profile definitions
 
     @field_validator("scales")
     @classmethod

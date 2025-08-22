@@ -98,7 +98,7 @@ def main(argv: Optional[list[str]] = None):
     level = args.log_level or cfg.logging.level
     configure_logging(level)
     log = logging.getLogger("engine")
-    log.info("engine_start phase=5.5 version=0.5.5")
+    log.info("engine_start phase=7 version=0.7.0")
     log.debug("config_loaded json=%s", cfg.model_dump_json())
 
     # Log all configuration values for transparency
@@ -112,11 +112,22 @@ def main(argv: Optional[list[str]] = None):
     log.info(f"midi_input_channel={cfg.midi.input_channel}")
     log.info(f"midi_output_channel={cfg.midi.output_channel}")
     
+    # Phase 7: MIDI Clock Configuration
+    log.info(f"midi_clock_enabled={cfg.midi.clock.enabled}")
+    log.info(f"midi_clock_send_start_stop={cfg.midi.clock.send_start_stop}")
+    log.info(f"midi_clock_send_song_position={cfg.midi.clock.send_song_position}")
+    
+    # Phase 7: CC Profile Configuration  
+    log.info(f"cc_profile_active={cfg.midi.cc_profile.active_profile}")
+    log.info(f"cc_profile_smoothing={cfg.midi.cc_profile.parameter_smoothing}")
+    log.info(f"cc_profile_throttle_ms={cfg.midi.cc_profile.cc_throttle_ms}")
+    
     # Sequencer Configuration
     log.info(f"sequencer_steps={cfg.sequencer.steps}")
     log.info(f"sequencer_bpm={cfg.sequencer.bpm}")
     log.info(f"sequencer_swing={cfg.sequencer.swing}")
     log.info(f"sequencer_density={cfg.sequencer.density}")
+    log.info(f"sequencer_gate_length={cfg.sequencer.gate_length}")
     log.info(f"sequencer_quantize_scale_changes={cfg.sequencer.quantize_scale_changes}")
     
     # Phase 5.5 Sequencer Features
@@ -161,6 +172,7 @@ def main(argv: Optional[list[str]] = None):
         'swing': cfg.sequencer.swing,
         'density': cfg.sequencer.density,
         'sequence_length': cfg.sequencer.steps,
+        'gate_length': cfg.sequencer.gate_length,
     }, source='config')
     
     # Create sequencer
@@ -182,6 +194,14 @@ def main(argv: Optional[list[str]] = None):
         except Exception as e:
             log.warning(f"failed_to_apply_direction_pattern={cfg.sequencer.direction_pattern} error={e}")
     
+    # Initialize MIDI output (optional)
+    midi_output = MidiOutput.create(cfg.midi.output_port, cfg.midi.output_channel)
+    if midi_output:
+        log.info(f"MIDI output enabled on port: {cfg.midi.output_port}")
+    else:
+        midi_output = NullMidiOutput()
+        log.info("MIDI output disabled")
+
     # Create action handler
     action_handler = ActionHandler(state, sequencer)
     
@@ -194,28 +214,16 @@ def main(argv: Optional[list[str]] = None):
     # Connect idle manager to action handler and mutation engine
     action_handler.set_idle_manager(idle_manager)
     mutation_engine.set_idle_manager(idle_manager)
-    
-    # Initialize MIDI output (optional)
-    midi_output = MidiOutput.create(cfg.midi.output_port, cfg.midi.output_channel)
-    if midi_output:
-        log.info(f"MIDI output enabled on port: {cfg.midi.output_port}")
-    else:
-        midi_output = NullMidiOutput()
-        log.info("MIDI output disabled")
-    
+
     # Initialize note scheduler for proper note off timing
     note_scheduler = NoteScheduler(midi_output)
-    note_scheduler.start()
-    
-    # Set up note callback for sequencer-generated notes
+    note_scheduler.start()    # Set up note callback for sequencer-generated notes
     def handle_note_event(note_event: NoteEvent):
         log.info(f"note_event note={note_event.note} velocity={note_event.velocity} step={note_event.step} duration={note_event.duration:.3f}")
         
-        # Send MIDI output if enabled
-        if midi_output.is_connected:
-            # Send note on immediately
+        # Send directly via MIDI output (no latency optimizer)
+        if midi_output and midi_output.is_connected:
             midi_output.send_note_on(note_event.note, note_event.velocity, cfg.midi.output_channel)
-            # Schedule note off after duration
             note_scheduler.schedule_note_off(note_event.note, cfg.midi.output_channel, note_event.duration)
         
         # TODO Phase 4+: Send to synthesis backend

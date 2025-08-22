@@ -62,7 +62,7 @@ class HighResClock:
             return
         
         self._running = True
-        self._start_time = time.time()
+        self._start_time = time.perf_counter()
         self._tick_count = 0
         self._drift_accumulator = 0.0
         
@@ -110,7 +110,7 @@ class HighResClock:
             target_time += self._drift_accumulator
             
             # Sleep until target time
-            current_time = time.time()
+            current_time = time.perf_counter()
             sleep_time = target_time - current_time
             
             if sleep_time > 0:
@@ -123,7 +123,7 @@ class HighResClock:
             
             # Emit tick event
             if self._tick_callback:
-                actual_time = time.time()
+                actual_time = time.perf_counter()
                 tick_event = TickEvent(
                     step=self._tick_count % self.ppq,
                     timestamp=actual_time,
@@ -528,12 +528,13 @@ class Sequencer:
             
             bpm = self.state.get('bpm', 110.0)
             step_duration = 60.0 / (bpm * self._steps_per_beat)
-            gate_length = step_duration * 0.8
+            gate_length_factor = self.state.get('gate_length', 0.8)
+            gate_length = step_duration * gate_length_factor
             
             note_event = NoteEvent(
                 note=note,
                 velocity=velocity,
-                timestamp=time.time(),
+                timestamp=time.perf_counter(),
                 step=step,
                 duration=gate_length
             )

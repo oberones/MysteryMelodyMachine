@@ -1,8 +1,21 @@
+logging:
+  level: INFO
+
 midi:
   input_port: "RK006 IN_ALL"
   output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
-  input_channel: 1
-  output_channel: 10
+  input_channel: 10
+  output_channel: 1
+
+  clock:
+    enabled: false            # Enable MIDI clock output to sync external devices
+    send_start_stop: true     # Send MIDI start/stop messages  
+    send_song_position: true  # Send song position pointer messages
+
+  cc_profile:
+    active_profile: "waldorf_streichfett" # Active CC profile (korg_nts1_mk2, waldorf_streichfett, generic_analog, fm_synth)
+    parameter_smoothing: true             # Enable parameter smoothing for CC messages
+    cc_throttle_ms: 10                    # Minimum milliseconds between CC messages (latency optimization)
 
 mapping:
   buttons:
@@ -14,7 +27,7 @@ mapping:
     "23": swing
     "24": density
     "25": master_volume
-    "26": note_probability
+    "26": gate_length       # Note duration control
     "50": sequence_length
     "51": scale_select
     "52": chaos_lock
@@ -24,10 +37,11 @@ mapping:
     "62": drift
 
 sequencer:
-  steps: 32
-  bpm: 85
+  steps: 16
+  bpm: 45
   swing: 0.12
   density: 0.85
+  gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
   step_pattern: syncopated
   direction_pattern: random
@@ -46,7 +60,7 @@ scales:
 mutation:
   interval_min_s: 30
   interval_max_s: 60
-  max_changes_per_cycle: 3
+  max_changes_per_cycle: 1
 
 idle:
   timeout_ms: 30000
@@ -56,7 +70,42 @@ idle:
 
 logging:
   level: INFO
-  
+
 api:
   enabled: true
   port: 8080
+
+# Built-in profiles: korg_nts1_mk2, generic_analog, fm_synth
+cc_profiles:
+  # Example custom profile for a specific synthesizer
+  my_custom_synth:
+    name: "My Custom Synthesizer"
+    description: "Custom CC mapping for my synthesizer"
+    parameters:
+      filter_cutoff: 
+        cc: 74
+        range: [0, 127]
+        curve: "exponential"
+        name: "Low Pass Filter Cutoff"
+      filter_resonance:
+        cc: 71  
+        range: [0, 127]
+        curve: "linear"
+        name: "Filter Resonance"
+      envelope_attack:
+        cc: 73
+        range: [0, 127] 
+        curve: "exponential"
+        name: "Amplitude Envelope Attack"
+      lfo_rate:
+        cc: 76
+        range: [0, 127]
+        curve: "logarithmic" 
+        name: "LFO Rate"
+      # Example stepped parameter (for oscillator types, etc.)
+      osc_waveform:
+        cc: 70
+        range: [0, 127]
+        curve: "stepped"
+        steps: 4
+        name: "Oscillator Waveform"

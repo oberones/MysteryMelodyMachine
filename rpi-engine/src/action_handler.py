@@ -3,6 +3,7 @@
 Translates semantic events from the router into state changes and sequencer operations.
 Phase 2: Basic parameter mapping and step triggering.
 Phase 6: Idle mode interaction tracking.
+Phase 7: External hardware CC profile parameter integration.
 """
 
 from __future__ import annotations
@@ -14,6 +15,10 @@ from events import SemanticEvent
 
 if TYPE_CHECKING:
     from idle import IdleManager
+    try:
+        from .external_hardware import ExternalHardwareManager
+    except ImportError:
+        from external_hardware import ExternalHardwareManager
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +31,7 @@ class ActionHandler:
         self.sequencer = sequencer
         self._note_callback: Optional[Callable[[NoteEvent], None]] = None
         self._idle_manager: Optional[IdleManager] = None
+        self._external_hardware: Optional[ExternalHardwareManager] = None  # Phase 7
         
         # Mapping from semantic action types to handler methods
         self._action_handlers: Dict[str, Callable[[SemanticEvent], None]] = {
@@ -35,6 +41,7 @@ class ActionHandler:
             'reverb_mix': self._handle_reverb_mix,
             'swing': self._handle_swing,
             'density': self._handle_density,
+            'gate_length': self._handle_gate_length,
             'note_probability': self._handle_note_probability,
             'master_volume': self._handle_master_volume,
             'sequence_length': self._handle_sequence_length,
@@ -57,6 +64,10 @@ class ActionHandler:
     def set_idle_manager(self, idle_manager: IdleManager):
         """Set the idle manager instance (for interaction tracking)."""
         self._idle_manager = idle_manager
+    
+    def set_external_hardware(self, external_hardware: ExternalHardwareManager):
+        """Set the external hardware manager instance (Phase 7)."""
+        self._external_hardware = external_hardware
     
     def handle_semantic_event(self, event: SemanticEvent):
         """Route a semantic event to the appropriate handler."""
@@ -112,12 +123,29 @@ class ActionHandler:
     def _handle_filter_cutoff(self, event: SemanticEvent):
         """Handle filter cutoff change (CC 21)."""
         if event.value is not None:
+            # Store in state for internal use
             self.state.set('filter_cutoff', event.value, source='midi')
+            
+            # Phase 7: Send to external hardware via CC profile
+            if self._external_hardware:
+                # Map CC value (0-127) to 0.0-1.0 for CC profile
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('filter_cutoff', normalized_value)
     
     def _handle_reverb_mix(self, event: SemanticEvent):
         """Handle reverb mix change (CC 22)."""
         if event.value is not None:
+            # Store in state for internal use
             self.state.set('reverb_mix', event.value, source='midi')
+            
+            # Phase 7: Send to external hardware via CC profile  
+            if self._external_hardware:
+                # Map CC value (0-127) to 0.0-1.0 for CC profile
+                normalized_value = event.value / 127.0
+                # Try reverb_depth as fallback parameter name
+                success = self._external_hardware.send_parameter_change('reverb_mix', normalized_value)
+                if not success:
+                    self._external_hardware.send_parameter_change('reverb_depth', normalized_value)
     
     def _handle_swing(self, event: SemanticEvent):
         """Handle swing change (CC 23)."""
@@ -132,6 +160,13 @@ class ActionHandler:
             # Map CC value (0-127) to density range (0.0-1.0)
             density = event.value / 127.0
             self.state.set('density', density, source='midi')
+    
+    def _handle_gate_length(self, event: SemanticEvent):
+        """Handle gate length change."""
+        if event.value is not None:
+            # Map CC value (0-127) to gate length range (0.1-1.0)
+            gate_length = 0.1 + (event.value / 127.0) * 0.9
+            self.state.set('gate_length', gate_length, source='midi')
     
     def _handle_master_volume(self, event: SemanticEvent):
         """Handle master volume change (CC 25)."""

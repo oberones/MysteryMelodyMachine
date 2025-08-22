@@ -153,6 +153,7 @@ sequencer:
   bpm: 110
   swing: 0.12
   density: 0.85
+  gate_length: 0.8              # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar   # enforce at bar boundary
 
 scales: [major, minor, pentatonic]
@@ -313,15 +314,16 @@ class PortalCue:
 - [X] Add configurable step patterns instead of hardcoded even-step activation.
 - [X] Add velocity variation based on probability values.
 - [X] Add direction patterns for sequencer playback (forward, backward, ping-pong, random).
+- [X] Add configurable note duration (gate_length) as fraction of step duration.
 
 ### Phase 6: Idle Mode
 - [X] Implement idle mode detection and handling.
 - [X] Mutations should be enabled when the system is idle and disabled when midi input is received
 
 ### Phase 7: External Hardware Integration
-- [ ] Latency optimization for external gear
-- [ ] MIDI clock synchronization options
-- [ ] Support for multiple MIDI CC profiles (default support for NTS MKII parameters)
+- [X] MIDI clock synchronization options
+- [X] Support for multiple MIDI CC profiles (default support for NTS MKII parameters)
+- [X] Simplified MIDI note scheduling (latency optimizer removed for stability)
 
 ### Phase 8: Portal Integration
 - [ ] Portal cue generation system
