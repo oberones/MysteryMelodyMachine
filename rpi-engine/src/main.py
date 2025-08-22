@@ -173,6 +173,8 @@ def main(argv: Optional[list[str]] = None):
         'density': cfg.sequencer.density,
         'sequence_length': cfg.sequencer.steps,
         'gate_length': cfg.sequencer.gate_length,
+        'smooth_idle_transitions': cfg.idle.smooth_bpm_transitions,
+        'idle_transition_duration_s': cfg.idle.bpm_transition_duration_s,
     }, source='config')
     
     # Create sequencer

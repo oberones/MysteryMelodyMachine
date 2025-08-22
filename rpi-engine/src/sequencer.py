@@ -162,6 +162,13 @@ class Sequencer:
         # For quantizing scale changes
         self._pending_scale_index: Optional[int] = None
         self._quantize_on_bar = True # From config eventually
+        
+        # BPM transition state
+        self._bpm_transition_active = False
+        self._bpm_transition_start_time = 0.0
+        self._bpm_transition_duration = 0.0
+        self._bpm_transition_start_bpm = 0.0
+        self._bpm_transition_target_bpm = 0.0
 
         # Listen for state changes
         self.state.add_listener(self._on_state_change)
@@ -238,6 +245,78 @@ class Sequencer:
         self.state.set('base_gate_length', base_gate_length, source='sequencer')
         self.state.set('gate_length_range', gate_length_range, source='sequencer')
         log.info(f"gate_length_params_set base={base_gate_length} range={gate_length_range}")
+    
+    def start_bpm_transition(self, current_bpm: float, target_bpm: float, duration_seconds: float = 4.0):
+        """Start a smooth BPM transition over the specified duration.
+        
+        Args:
+            current_bpm: Current BPM to transition from
+            target_bpm: Target BPM to transition to
+            duration_seconds: Duration of the transition in seconds
+        """
+        # Don't transition if we're already at the target BPM
+        if abs(current_bpm - target_bpm) < 1.0:
+            log.debug(f"bpm_transition_skipped current={current_bpm:.1f} target={target_bpm:.1f} delta_too_small=True")
+            return
+        
+        # Store transition parameters
+        self._bpm_transition_active = True
+        self._bpm_transition_start_time = time.perf_counter()
+        self._bpm_transition_duration = duration_seconds
+        self._bpm_transition_start_bpm = current_bpm
+        self._bpm_transition_target_bpm = target_bpm
+        
+        log.info(f"bpm_transition_started from={current_bpm:.1f} to={target_bpm:.1f} duration={duration_seconds:.1f}s")
+    
+    def set_bpm_immediate(self, bpm: float):
+        """Set BPM immediately without transition (for non-idle changes).
+        
+        Args:
+            bpm: BPM value to set immediately
+        """
+        # Cancel any active transition
+        self._bpm_transition_active = False
+        
+        # Set BPM directly in state
+        self.state.set('bpm', bpm, source='sequencer_immediate')
+        log.debug(f"bpm_set_immediate bpm={bpm:.1f}")
+    
+    def _update_bpm_transition(self):
+        """Update BPM during an active transition."""
+        if not self._bpm_transition_active:
+            return
+        
+        current_time = time.perf_counter()
+        elapsed = current_time - self._bpm_transition_start_time
+        
+        if elapsed >= self._bpm_transition_duration:
+            # Transition complete
+            self._bpm_transition_active = False
+            final_bpm = self._bpm_transition_target_bpm
+            
+            # Set final BPM value
+            self.state.set('bpm', final_bpm, source='sequencer_transition_complete')
+            log.info(f"bpm_transition_complete final_bpm={final_bpm:.1f}")
+            
+        else:
+            # Calculate interpolated BPM
+            progress = elapsed / self._bpm_transition_duration
+            
+            # Use smooth easing (ease-in-out cubic)
+            if progress < 0.5:
+                eased_progress = 4 * progress * progress * progress
+            else:
+                eased_progress = 1 - pow(-2 * progress + 2, 3) / 2
+            
+            current_bpm = self._bpm_transition_start_bpm + (
+                (self._bpm_transition_target_bpm - self._bpm_transition_start_bpm) * eased_progress
+            )
+            
+            # Update clock directly (don't trigger state change to avoid recursion)
+            self.clock.update_params(bpm=current_bpm)
+            
+            log.debug(f"bpm_transition_update progress={progress:.3f} bpm={current_bpm:.1f}")
+    
     
     def get_pattern_preset(self, preset_name: str) -> List[bool]:
         """Get a predefined step pattern.
@@ -436,7 +515,20 @@ class Sequencer:
 
     def _on_state_change(self, change: StateChange):
         """Handle state parameter changes."""
-        if change.parameter in ('bpm', 'swing'):
+        if change.parameter == 'bpm':
+            # Handle BPM changes based on source
+            if change.source == 'idle' and self.state.get('smooth_idle_transitions', True):
+                # Smooth transition for idle mode changes
+                current_bpm = change.old_value if change.old_value is not None else 110.0
+                target_bpm = change.new_value
+                transition_duration = self.state.get('idle_transition_duration_s', 4.0)
+                self.start_bpm_transition(current_bpm, target_bpm, transition_duration)
+            elif change.source not in ('sequencer_transition_complete', 'sequencer_immediate'):
+                # Immediate change for MIDI/user input (cancel any active transition)
+                self._bpm_transition_active = False
+                self._update_clock_from_state()
+            # Otherwise ignore (transition is handling it)
+        elif change.parameter == 'swing':
             self._update_clock_from_state()
         elif change.parameter in ('scale_index', 'root_note'):
             self._update_scale_from_state()
@@ -460,6 +552,9 @@ class Sequencer:
     
     def _on_tick(self, tick: TickEvent):
         """Handle clock tick events."""
+        # Update BPM transition if active
+        self._update_bpm_transition()
+        
         self._tick_counter += 1
         
         if self._tick_counter >= self._ticks_per_step:

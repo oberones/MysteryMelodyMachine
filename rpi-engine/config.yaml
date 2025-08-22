@@ -38,13 +38,13 @@ mapping:
 
 sequencer:
   steps: 16
-  bpm: 45
+  bpm: 95
   swing: 0.12
   density: 0.85
   gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
   step_pattern: syncopated
-  direction_pattern: random
+  direction_pattern: forward
 
 scales:
   - major
@@ -67,6 +67,8 @@ idle:
   ambient_profile: slow_fade
   fade_in_ms: 4000
   fade_out_ms: 800
+  smooth_bpm_transitions: true
+  bpm_transition_duration_s: 4.0
 
 logging:
   level: INFO

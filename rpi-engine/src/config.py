@@ -44,6 +44,8 @@ class IdleConfig(BaseModel):
     ambient_profile: str = "slow_fade"
     fade_in_ms: int = 4000
     fade_out_ms: int = 800
+    smooth_bpm_transitions: bool = True
+    bpm_transition_duration_s: float = 4.0
 
 class SynthConfig(BaseModel):
     backend: str = Field("supercollider", pattern=r"^(supercollider)$")
