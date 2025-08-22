@@ -19,12 +19,14 @@ Decided Tech Stack (per clarifications):
 - Robust logging + introspection (metrics & state snapshot endpoints).
 - Idle detection & adaptive behavior (ambient mode after 30 s inactivity).
 - Modular audio backend abstraction (swap PD, SuperCollider, Python-native synthesis).
+- **Initial version supports a single monophonic external hardware synth.**
 
 ### Non-Goals (Push to Firmware or Future)
 - Physical input scanning (Teensy handles low-level hardware)
 - Heavy GUI (maybe a lightweight status endpoint later)
 - Persistent user content management (beyond simple presets / JSON state)
 - High-bandwidth LED frame streaming (handled by Teensy animations)
+- **Polyphony and multi-instrument support (future goals).**
 
 ---
 ## 2. High-Level Architecture
@@ -76,20 +78,21 @@ USB MIDI  --->  |  MIDI In Adapter          |
 ```
 
 ---
+
 ## 3. Module Breakdown
 | Module | Responsibility | Key Concepts | Deliverables |
 |--------|----------------|--------------|--------------|
-| `midi_in` | Open and parse MIDI events | Port discovery, event queue | Python module / PD patch gateway |
-| `router` | Map raw Note/CC -> semantic actions | Config-driven rules | YAML/JSON + Python loader |
-| `state` | Central parameter store | Observable pattern, version stamping | Class + getter/setter events |
-| `sequencer` | Step timing, probability gating | Clock, drift, density factors | Tick driver + pattern abstraction |
-| `scale_mapper` | Map pitch -> scale | Scale definitions, transposition | Library module |
-| `mutation` | Periodic param changes | Weighted random scheduling | Scheduler + rule registry |
-| `synth_adapter` | Uniform interface to backend | Strategy pattern | `play_note`, `set_param` |
-| `backend_pd/sc/pyo` | Concrete audio generation | OSC, direct API | Backend drivers |
-| `led_bus` | Publish LED intents | JSON messages, OSC, serial | Pluggable endpoint |
-| `idle_manager` | Detect inactivity & trigger mode | Event timestamps | Idle state transitions |
-| `config` | Load + validate structured config | Schema validation (`pydantic`) | Config objects |
+| `midi_in` | Receive MIDI from Teensy | Port discovery, event queue | Python module |
+| `midi_out` | Send MIDI to external synths | Multi-port routing, latency optimization | MIDI interface |
+| `router` | Map raw Note/CC -> semantic actions | Config-driven rules | YAML/JSON loader |
+| `state` | Central parameter store | Observable pattern, profile switching | State management |
+| `sequencer` | Step timing, generative patterns | Clock, probability, mutations | Pattern engine |
+| `scale_mapper` | Musical scale transformations | Scale definitions, quantization | Music theory |
+| `cc_profiles` | **NEW** Synth-specific CC mappings | Profile definitions, parameter scaling | Synth abstraction |
+| `portal_cues` | **NEW** Visual animation control | Cue generation, Teensy communication | Visual sync |
+| `mutation` | Automated parameter evolution | Weighted scheduling, musical bounds | Generative logic |
+| `idle_manager` | Detect inactivity & ambient mode | Event timestamps, profile switching | Adaptive behavior |
+| `config` | Load + validate configuration | Schema validation (`pydantic`) | Config management |
 | `logging/metrics` | Structured logs + counters | `logging`, `prometheus_client` | Exposed metrics endpoint |
 | `api` | Optional web/OSC interface | FastAPI / aiohttp + OSC server | Control + introspection |
 | `persistence` | Preset save/load (optional) | JSON snapshot | Save/restore functions |
@@ -105,30 +108,53 @@ midi:
   output_port: auto  # Optional MIDI output port
   input_channel: 10   # Channel for incoming MIDI (1-16)
   output_channel: 1   # Channel for outgoing MIDI (1-16)
+
+# Synth-specific CC parameter mappings
+cc_profiles:
+  korg_nts1_mk2:
+    name: "Korg NTS1 MK2"
+    parameters:
+      filter_cutoff: {cc: 21, range: [0, 127], curve: "linear"}
+      filter_resonance: {cc: 22, range: [0, 127], curve: "linear"}
+      eg_attack: {cc: 23, range: [0, 127], curve: "exponential"}
+      eg_decay: {cc: 24, range: [0, 127], curve: "exponential"}
+      lfo_rate: {cc: 25, range: [0, 127], curve: "logarithmic"}
+      osc_type: {cc: 20, range: [0, 127], curve: "stepped", steps: 8}
+      
+  generic_analog:
+    name: "Generic Analog Synth"
+    parameters:
+      filter_cutoff: {cc: 74, range: [0, 127]}
+      filter_resonance: {cc: 71, range: [0, 127]}
+      envelope_attack: {cc: 73, range: [0, 127]}
+      envelope_decay: {cc: 75, range: [0, 127]}
+
+# Input mapping (from Teensy)
 mapping:
   buttons:
-    60-71: trigger_step   # map notes range to generic trigger action
+    "60-69": trigger_step
   ccs:
-    20: tempo
-    21: filter_cutoff
-    22: reverb_mix
-    23: swing
-    24: density
-    25: master_volume
-    26: note_probability  # added in implementation
-    50: sequence_length
-    51: scale_select
-    52: chaos_lock
-    53: reserved
-    60: mode
-    61: palette
-    62: drift
+    "20": active_profile_param_1  # Maps to filter_cutoff in active profile
+    "21": active_profile_param_2  # Maps to filter_resonance in active profile
+    "22": active_profile_param_3  # etc.
+    "23": swing
+    "24": density
+    "25": master_volume
+    "50": sequence_length
+    "51": scale_select
+    "52": cc_profile_select  # Switch between synth profiles
+    "53": portal_program
+    "60": mode
+    "61": mutation_rate
+    "62": drift
+
 sequencer:
   steps: 8
   bpm: 110
   swing: 0.12
   density: 0.85
   quantize_scale_changes: bar   # enforce at bar boundary
+
 scales: [major, minor, pentatonic]
 mutation:
   interval_min_s: 120
@@ -139,9 +165,6 @@ idle:
   ambient_profile: slow_fade
   fade_in_ms: 4000
   fade_out_ms: 800
-synth:
-  backend: supercollider
-  voices: 8   # adjustable; TBD if higher polyphony needed
 logging:
   level: INFO
 api:
@@ -181,19 +204,48 @@ api:
 - Exit idle on any new interaction; revert to saved active profile.
 
 ---
-## 9. LED Event Abstraction (If Pi Contributes)
-Define a minimal schema (Teensy renders patterns, so keep lean):
-```json
-{ "type": "note", "velocity": 100, "pitch": 64 }
-{ "type": "param", "name": "tempo", "value": 128 }
-{ "type": "mode", "mode": "mystic" }
-{ "type": "idle", "state": true }
-```
-Transport options:
-- Serial back to Teensy (if Teensy owns LEDs) (pack as small binary messages)
-- UDP/OSC if Pi owns LEDs
+## 9. CC Profile System
+### Profile Structure
+```python
+@dataclass
+class CCParameter:
+    cc: int
+    range: tuple[int, int] = (0, 127)
+    curve: str = "linear"  # linear, exponential, logarithmic, stepped
+    steps: Optional[int] = None  # for stepped parameters
 
-MVP chooses only the messages required for existing animations.
+@dataclass 
+class CCProfile:
+    name: str
+    parameters: dict[str, CCParameter]
+    
+    def map_parameter(self, param_name: str, value: float) -> tuple[int, int]:
+        """Map 0.0-1.0 value to (CC_number, CC_value) for this synth"""
+```
+
+### Supported Profiles
+- **Korg NTS1 MK2:** Complete parameter mapping for oscillator, filter, envelope, LFO
+- **Generic Analog:** Standard subtractive synthesis parameters
+- **FM Synth:** Operator-based synthesis parameters
+- **Custom:** User-defined mappings via YAML configuration
+
+---
+## 10. Portal Animation System
+### Cue Types
+```python
+class PortalCue:
+    program: str        # Animation program name
+    intensity: float    # 0.0-1.0 animation intensity
+    rate: float         # Animation speed multiplier
+    color_hue: float    # 0.0-1.0 hue shift
+    sync_bpm: bool      # Sync animations to sequencer BPM
+```
+
+### Communication Protocol
+- **Serial/MIDI back to Teensy:** Lightweight binary messages
+- **Programs:** `spiral`, `pulse`, `wave`, `chaos`, `ambient`, `idle`
+- **Rate Sync:** Portal animations sync to sequencer BPM and activity level
+- **Idle Mode:** Automatic switch to ambient portal program during idle
 
 ---
 ## 10. Logging & Metrics
@@ -266,9 +318,16 @@ MVP chooses only the messages required for existing animations.
 - [X] Implement idle mode detection and handling.
 - [X] Mutations should be enabled when the system is idle and disabled when midi input is received
 
-### Phase 7: LED Event Emission
-- [ ] Basic LED cue emitter (note, param, mode).
-- [ ] Idle mode LED event with lower brightness
+### Phase 7: External Hardware Integration
+- [ ] Latency optimization for external gear
+- [ ] MIDI clock synchronization options
+- [ ] Support for multiple MIDI CC profiles (default support for NTS MKII parameters)
+
+### Phase 8: Portal Integration
+- [ ] Portal cue generation system
+- [ ] Serial communication with Teensy portal
+- [ ] Visual-musical synchronization
+- [ ] Portal program selection and control
 
 ### Phase 8: API & Metrics
 - [ ] HTTP/JSON endpoint for current state & mutation history.
@@ -283,6 +342,7 @@ MVP chooses only the messages required for existing animations.
 - [ ] Preset save/load.
 - [ ] Config hot-reload (SIGHUP or file watcher).
 - [ ] CLI flags for overrides.
+- [ ] Enable logging to file (/var/log/rpi-engine.log)
 
 ---
 ## 14. Directory Structure (Proposed)
@@ -317,36 +377,41 @@ requirements.txt or pyproject.toml
 ```
 
 ---
-## 15. Sample Pseudocode (Core Loop)
+## 15. Portal Integration Details
+### Teensy Communication
 ```python
-class Engine:
-    def __init__(self, cfg):
-        self.clock = HighResClock(cfg.sequencer.bpm, ppq=24, swing=cfg.sequencer.swing)
-        self.seq = Sequencer(cfg)
-        self.router = Router(cfg, self.handle_action)
-        self.synth = SynthAdapter(cfg)
-        self.mutation = MutationEngine(cfg, self.state)
-        self.idle = IdleManager(cfg.idle.timeout_ms, self.on_idle_state)
-        self.led = LedBus(cfg)
-
-    def handle_action(self, action):
-        self.idle.touch()
-        # update state or trigger events
-        ...
-
-    def run(self):
-        for tick in self.clock.run():
-            events = self.seq.tick(tick, self.state)
-            for evt in events:
-                note = self.scale.map(evt.pitch, self.state.scale)
-                self.synth.play_note(note, evt.velocity, evt.duration)
-                self.led.note(note, evt.velocity)
-            self.mutation.maybe_mutate()
-            self.idle.check()
+class PortalInterface:
+    def send_cue(self, program: str, intensity: float, rate: float):
+        """Send animation cue to Teensy portal"""
+        
+    def set_bpm_sync(self, bpm: float):
+        """Sync portal animation rate to sequencer BPM"""
+        
+    def enter_idle_mode(self):
+        """Switch portal to ambient/idle animation"""
 ```
 
+### Animation Synchronization
+- **Beat Sync:** Portal pulses and flashes sync to sequencer beats
+- **Parameter Coupling:** Portal color and intensity reflect filter cutoff, resonance
+- **Activity Response:** Animation intensity follows sequencer density and mutation activity
+- **Idle Transition:** Smooth fade to ambient patterns during idle mode
+
 ---
-## 16. Performance Targets
+## 16. External Synth Optimization
+### MIDI Performance
+- **Direct Hardware MIDI:** Minimize USB-MIDI latency where possible
+- **CC Throttling:** Intelligent parameter smoothing to avoid MIDI flooding
+- **Note Priority:** Ensure note events take priority over CC updates
+- **Multi-Port:** Support multiple external synths simultaneously
+
+### Synth-Specific Features
+- **NTS1 MK2 Presets:** Automatically recall and modify onboard presets
+- **Parameter Scaling:** Optimal CC curves for each synth's parameter response
+- **Voice Management:** Intelligent note allocation for polyphonic external synths
+
+---
+## 17. Performance Targets
 | Metric | Target |
 |--------|--------|
 | MIDI event handling latency | < 5 ms avg |
@@ -356,26 +421,26 @@ class Engine:
 | Continuous uptime stability | ≥ 10 hr soak (>= 8 hr requirement + margin) |
 
 ---
-## 17. Security / Safety Considerations
+## 18. Security / Safety Considerations
 - Run engine as non-root.
 - Validate config input (schema) before applying.
 - Rate-limit external API mutation endpoints.
 - Avoid blocking calls in audio scheduling path.
 
 ---
-## 18. Deployment & Operation
+## 19. Deployment & Operation
 - Systemd service file (`mystery_engine.service`) to auto-start.
 - Log rotation with `logrotate` or built-in max-size rotation.
 - Optional watchdog (systemd Restart=on-failure).
 
 ---
-## 19. Versioning & Release
+## 20. Versioning & Release
 - Semantic versioning (engine separate from firmware).
 - Tag: `engine-v0.1.0` once Phase 5 complete & stable.
 - CHANGELOG entries by feature area.
 
 ---
-## 20. Risks & Mitigations
+## 21. Risks & Mitigations
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | Python GC pauses cause jitter | Audio glitches | Keep audio real-time work minimal; offload synthesis to external engine (PD/SC) |
@@ -385,26 +450,14 @@ class Engine:
 | Idle mode flaps | Visual/audio noise | Hysteresis (exit only after 1s active) |
 
 ---
-## 21. Decisions & Remaining Open Points
-Resolved Decisions:
-1. Backend: SuperCollider (primary)
-2. Polyphony: Required (initial provision: 8 voices)
-3. Scale Changes: Quantized at bar boundary
-4. LEDs: Teensy-only animations; Pi sends minimal cues
-5. Idle Fade: Use 4 s fade-in, 0.8 s fade-out (tunable)
-6. External Clock Sync: Not needed v1
-7. Mutation Persistence: Not needed v1
-8. Remote Live Editing (Web/OSC): Deferred post-v1
-9. Runtime Expectation: ≥ 8 hr daily (design for 10+ hr soak)
-10. License: Align with firmware (TBD – please choose e.g., MIT/Apache-2.0)
+## 22. Testing Strategy (Updated)
+### Hardware Integration
+- **Multi-Synth Testing:** Verify MIDI routing to multiple external devices
+- **Portal Sync Testing:** Visual-musical synchronization accuracy
+- **Latency Measurement:** End-to-end timing from Teensy input to synth output
+- **Profile Switching:** Seamless transitions between different synth configurations
 
----
-## 22. Acceptance Criteria v0.1.0
-- Configurable via `config.yaml` (loaded & validated)
-- Receives MIDI from Teensy & logs semantic events
-- Basic sequencer producing timed note events (8 steps) with density & probability
-- Scale mapping functional (≥3 scales switchable by CC)
-- Mutation engine periodically altering at least one parameter
-- Idle mode transitions to ambient profile and back reliably
-- LED cue messages emitted (schema stable) or deferred by decision
-- 2 hr soak test passes (no unbounded growth, stable performance)
+### Musical Testing
+- **Scale Accuracy:** Verify musical intervals and quantization
+- **Generative Quality:** Assess mutation and pattern generation musicality
+- **Performance Stability:** Extended sessions with complex external setups

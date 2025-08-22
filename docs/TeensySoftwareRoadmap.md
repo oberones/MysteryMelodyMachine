@@ -1,14 +1,15 @@
 # Teensy Firmware Software Roadmap
 
 Target MCU: Teensy 4.1  (USB Type: MIDI)
-Primary Role: Scan physical controls, generate debounced + smoothed event state, emit MIDI (Notes + CC), drive LED feedback animations, expose diagnostic + configuration hooks.
+Primary Role: Scan physical controls, generate debounced + smoothed event state, emit MIDI (Notes + CC), drive RGB LED infinity portal animations using pre-existing portal code, receive portal animation cues from Pi, expose diagnostic + configuration hooks.
 Stretch Role: Light-weight rule hooks (ONLY if round‑trip to Pi causes unacceptable latency for a subset of interactions).
 
 ---
 ## 1. Goals & Non‑Goals
 ### Core Goals
 - Reliable low‑latency input → MIDI event pipeline (≤3 ms scan → send typical worst case)
-- Deterministic LED feedback patterns (press, latch, idle, ambient fades)
+- Integrate pre-existing infinity portal animation code with program switching and BPM sync
+- Portal animation responsiveness to physical interactions and Pi cues
 - Stable over multi‑hour soak (memory, timing, heat)
 - Easily extensible mapping layer (table/data‑driven vs. hard coded switch blocks)
 - Resilient to switch bounce & pot jitter
@@ -17,7 +18,8 @@ Stretch Role: Light-weight rule hooks (ONLY if round‑trip to Pi causes unaccep
 ### Non‑Goals (Handled on Pi)
 - Generative logic, scale/pitch selection, probability engine
 - Long‑term state persistence (beyond optional calibration constants)
-- Complex LED scene choreography (advanced patterns can move to Pi LED controller later)
+- External synth synthesis (Pi routes MIDI to hardware synths)
+- Complex portal scene choreography (Pi sends high-level animation cues)
 
 ---
 ## 2. High‑Level Architecture
@@ -35,15 +37,14 @@ Stretch Role: Light-weight rule hooks (ONLY if round‑trip to Pi causes unaccep
           |                                              ^
           v                                              |
 +------------------+       +--------------------+        |
-| Analog Filter    |-----> | Mapping Tables     |--------+
-| (pots smoothing) |       | (Notes/CC cfg)     |
+| (pots smoothing) |       | (Notes/CC cfg)     |--------+
 +------------------+       +--------------------+
           |
           v
-+------------------+
-| LED Controller    |
-| (state-driven)    |
-+------------------+
++------------------+       +--------------------+
+| Portal Controller |<----> | Portal Cue Handler |
+| (animation progs) |       | (Pi → Teensy cues) |
++------------------+       +--------------------+
           |
           v
 +------------------+
@@ -61,66 +62,73 @@ Stretch Role: Light-weight rule hooks (ONLY if round‑trip to Pi causes unaccep
 | `AnalogSmoother` | Pot noise reduction & 10-bit→7-bit mapping | Exponential / median filter + deadband | `filter(channel)` |
 | `Mapping` | Physical index → MIDI note/CC/channel | Tables; easily edited | Config struct + arrays |
 | `MidiOut` | Encapsulation of usbMIDI sends | Throttle identical repeats | `sendNoteOn/Off`, `sendCC` |
-| `LedFx` | Patterns: idle, press pulse, sustain glow | Frame delta approach | `tick()` & pattern registry |
+| `PortalFx` | Animation programs: spiral, pulse, wave, chaos, ambient, idle | Pre-existing portal code integration | `updateProgram()`, `setBpm()` |
+| `PortalCues` | Receive animation cues from Pi | Serial/MIDI message parsing | `handleCue()`, `switchProgram()` |
 | `Scheduler` | Fixed timestep tick (1 ms or 2 ms) | `elapsedMicros` | Main loop timing |
 | `Diagnostics` | Serial prints & optional CC echo | Rate-limited | `dumpState()` |
 | `ConfigStore` (future) | (Optional) store calibration | EEPROM / LittleFS | Accessors |
 
 ---
 ## 4. Development Phases & Milestones
-### Phase 0: Bootstrap (Day 1)
+### Phase 0: Bootstrap
 - [ ] Create `teensy/firmware/` structure
 - [ ] Basic blink / Serial Hello
 - [ ] Confirm USB Type = MIDI enumerates
 
-### Phase 1: Raw Input + MIDI (Day 1–2)
+### Phase 1: Raw Input + MIDI
 - [ ] Define pin & mapping tables
 - [ ] Poll buttons → send NoteOn/NoteOff (no debounce)
 - [ ] Poll pots → send CC on value change (raw 0–127 mapping)
 - [ ] Poll joystick & switches → send CC (edge triggered naive)
 
-### Phase 2: Robust Input Layer (Day 3)
+### Phase 2: Robust Input Layer
 - [ ] Implement time-based debounce (per control configurable)
 - [ ] Add analog smoothing: EMA (α ≈ 0.25) + deadband (Δ≥2 -> send)
 - [ ] Implement change compression (only send CC after stable for 4 ms OR threshold exceeded)
 - [ ] Unit-like serial test mode: dump values each second
 
-### Phase 3: LED Feedback Core (Day 4)
-- [ ] Integrate FastLED (NUM_LEDS constant, brightness limit)
-- [ ] Press pulse animation (short decay)
-- [ ] Pot activity highlight (e.g., index pixel brightness flash)
-- [ ] Idle detector (≥30 s no events) → ambient slow breathe pattern
+### Phase 3: Portal Animation Integration
+- [ ] Integrate pre-existing infinity portal code from `~/Projects/coding/arduino/uno/arduino-infinity-portal`
+- [ ] Implement portal animation programs: spiral, pulse, wave, chaos, ambient, idle
+- [ ] Add portal cue handler for receiving Pi commands (program switch, BPM sync, intensity)
+- [ ] Button press visual feedback within current portal program
+- [ ] Pot activity visual feedback (color/intensity shifts)
+- [ ] Idle detector (≥30 s no events) → automatic switch to ambient/idle portal program
 
-### Phase 4: Performance Hardening (Day 5)
+### Phase 4: Performance Hardening
 - [ ] Measure loop time histogram (micros min/avg/max over 10k cycles)
 - [ ] Ensure worst-case loop < 1000 µs (if 1 kHz target)
 - [ ] Replace slow operations (avoid floating point in hot path where possible)
 - [ ] Add conditional compilation `#define DEBUG 0`
 
-### Phase 5: Diagnostics & Safety (Day 6)
+### Phase 5: Diagnostics & Safety
 - [ ] Rate-limited serial debug command handler (list: `?` help)
-- [ ] Runtime toggle of LED brightness / debug prints
+- [ ] Runtime toggle of portal brightness / debug prints
 - [ ] MIDI panic handler (all notes off) bound to a hidden combo
+- [ ] Portal animation diagnostic mode (cycle through all programs)
 
-### Phase 6: Refinements / Polish (Day 7+)
+### Phase 6: Refinements / Polish
 - [ ] Per-input configurable debounce via table
 - [ ] Optional calibration (store pot min/max into EEPROM)
-- [ ] LED pattern theming (array of palettes)
+- [ ] Portal animation theming (configurable color palettes)
 - [ ] Add version string & semantic version bump policy
+- [ ] Portal BPM synchronization fine-tuning
 
 ### Stretch (Future)
-- [ ] Lightweight scripting hook (e.g., simple rule DSL for LED tie-ins) – only if needed
+- [ ] Lightweight scripting hook (e.g., simple rule DSL for portal tie-ins) – only if needed
 - [ ] USB Vendor SysEx channel for remote config from Pi
-- [ ] Boot self-test (flash each LED, read each input once)
+- [ ] Boot self-test (portal animation sequence, read each input once)
+- [ ] Portal cross-fade between programs for smooth transitions
 
 ---
 ## 5. Timing & Rates
 | Element | Target | Notes |
 |---------|--------|-------|
-| Main scan tick | 1 kHz (1 ms) | Enough for responsive buttons & LED updates |
-| LED refresh | 60–100 Hz | Decouple from scan using modulus (e.g., every 10th tick) |
+| Main scan tick | 1 kHz (1 ms) | Enough for responsive buttons & portal updates |
+| Portal refresh | 60–100 Hz | Decouple from scan using modulus (e.g., every 10th tick) |
 | Pot CC emission | ≤20 Hz per channel when moving | Apply deadband & min interval (e.g., 15 ms) |
 | Idle detection window | 30,000 ms | Configurable constant |
+| Portal BPM sync | 1–4 Hz typical | Synced to Pi sequencer BPM via cues |
 
 ---
 ## 6. Debounce & Filtering Strategy
@@ -149,27 +157,46 @@ extern const SwitchCfg SWITCHES[3];
 Runtime state arrays mirror configs for last raw, filtered, and timing metadata.
 
 ---
-## 8. LED Pattern System (MVP)
-LED Inventory: 60 LEDs in a single linear strip (index 0..59). Initial mapping (suggestion):
-- Indices 0–9: Button feedback (one per button)
-- Indices 10–15: Knob feedback (one per pot)
-- Indices 16–19: Joystick cardinal indicators / directional pulses
-- Indices 20–22: Switch state indicators
-- Remaining 23–59: Ambient / mode / idle effects band
+## 8. Portal Animation System (Replacing LED Pattern System)
+Portal Programs: Using pre-existing infinity portal code with 6 main animation programs:
 
-Brightness Policy:
-- Global max brightness limited (e.g. `LED_BRIGHTNESS_MAX = 160` out of 255)
-- Idle brightness cap: 15% of max (≈24) to reduce glare in ambient mode
+**Core Animation Programs:**
+- `spiral`: Rotating spiral patterns with configurable direction and speed
+- `pulse`: Rhythmic pulsing synchronized to BPM from Pi
+- `wave`: Flowing wave patterns that respond to activity level
+- `chaos`: Random/chaotic patterns triggered by mutation events
+- `ambient`: Slow, peaceful patterns for background ambiance
+- `idle`: Minimal ambient mode with very low brightness (≤15% of max)
 
-| Pattern | Trigger | Behavior |
-|---------|---------|----------|
-| Press Pulse | Button note-on | Assigned pixel set to palette color at full brightness (capped) then exponential fade |
-| Pot Nudge | Pot value delta above threshold | Pixel flash (white or accent) proportional to delta magnitude |
-| Active Mode Glow | Switch toggled | Switch pixels latch to mode color palette entry |
-| Idle Ambient | No events 30 s | Low-brightness (≤15% cap) slow hue rotate / gentle breathe over ambient band |
-| Startup Self-Test | On boot before normal loop | Sequential chase over all 60 LEDs, color wheel sweep, then success blink |
+**Portal Control Interface:**
+```cpp
+class PortalController {
+  void setProgram(uint8_t program_id);
+  void setBpmRate(float bpm);
+  void setIntensity(float intensity);  // 0.0-1.0
+  void setColorHue(float hue);         // 0.0-1.0 hue shift
+  void triggerFlash();                 // Button press feedback
+  void update();                       // Called from main loop
+};
+```
 
-Implementation: Maintain per-pixel `uint16_t energy`; each LED frame: `energy = max(0, energy - decay)`; brightness = `min(maxBrightness, (energy * scale) >> shift)`, and clamp to idle cap if idle.
+**Pi → Teensy Portal Cues:**
+- Program switching commands
+- BPM synchronization values
+- Intensity/activity level updates
+- Color palette adjustments
+- Idle mode enter/exit commands
+
+**Integration with Controls:**
+- Button presses trigger visual flashes within current program
+- Pot movements create temporary color/intensity shifts
+- Switch changes may trigger program transitions
+- Idle detection (30s) automatically switches to ambient/idle programs
+
+**Brightness Policy:**
+- Global max brightness limited (LED_BRIGHTNESS_MAX = 160 out of 255)
+- Idle brightness cap: 15% of max (≈24) to reduce glare
+- Dynamic brightness scaling based on activity and time of day
 
 ---
 ## 9. MIDI Policy
@@ -186,8 +213,9 @@ Implementation: Maintain per-pixel `uint16_t energy`; each LED frame: `energy = 
 |-------|-----------|----------|
 | Stuck button (never releases 5 s) | Timer since press | Force note-off + mark flagged in diagnostics |
 | ADC noise storm | Excessive jitter detections | Temporarily increase smoothing α or lock channel |
-| LED driver hang | Frame time > 5 ms repeatedly | Drop LED frame rate / set warning pattern |
+| Portal driver hang | Frame time > 5 ms repeatedly | Switch to simpler program / reduce complexity |
 | USB MIDI stall | Queue full (rare) | Skip low-priority CC until queue clears |
+| Portal cue timeout | No Pi cues for >60s | Switch to autonomous mode, continue animations |
 
 ---
 ## 11. Testing Plan
@@ -222,11 +250,11 @@ Use `#if DEBUG` blocks for serial prints to keep hot path lean.
 | Item | Estimate |
 |------|----------|
 | State arrays (inputs, metadata) | < 2 KB |
-| LED buffer (100 LEDs × 3 bytes) | 300 B (FastLED internal adds overhead) |
+| Portal buffer (pre-existing code) | < 1 KB (varies by program complexity) |
 | Stack (main) | < 4 KB typical |
 | Total headroom (Teensy 4.1 has 1 MB RAM) | Abundant |
 
-CPU: Input + LED + MIDI expected << 5% @ 600 MHz.
+CPU: Input + Portal + MIDI expected << 10% @ 600 MHz.
 
 ---
 ## 14. Versioning & Release Process
@@ -239,29 +267,33 @@ CPU: Input + LED + MIDI expected << 5% @ 600 MHz.
 | Risk | Impact | Mitigation |
 |------|--------|------------|
 | Excessive CC spam | MIDI congestion / Pi CPU | Deadband + rate limit |
-| LED EMI / audio noise | Audible hum | Twist data+ground, add series resistor, filtering |
+| Portal animation complexity | CPU overload / frame drops | Adaptive complexity reduction, simpler fallback programs |
 | Future mapping changes require flash | Slow iteration | Keep remap on Pi where possible; only static physical indexes in firmware |
+| Portal cue communication failure | Visual-musical desync | Autonomous fallback mode, graceful degradation |
 | Hidden mode latency (if added on Pi) | Perceived delay | Only offload *non-time-critical* transforms |
 
 ---
 ## 16. Decisions (Previously Open Questions)
-1. LEDs: 60 in single strip; mapping established (see §8). Potential future expansion reserved.
-2. Palette: Fixed palette in firmware for v1; Pi will not push palette changes.
-3. Joystick: Single 127 pulse per press (edge), no 0 release message.
-4. Buttons: Fixed velocity for v1 (no dynamic velocity / aftertouch).
-5. Startup Self-Test: Implement chase + color sweep + success blink before entering normal loop.
-6. Remote Config Protocol: Deferred (no SysEx / config channel v1).
-7. Pot Latency Budget: ≤20 ms acceptable → current smoothing & rate limit chosen accordingly.
-8. LED Frames: Pi will NOT stream full frames; only minimal cue messages; Teensy fully owns LED rendering.
-9. Idle Brightness: Cap at 15% of max brightness (see flags) to reduce glare.
-10. License: Apache 2.0 (aligns with overall project license).
+1. Portal Integration: Use pre-existing infinity portal code from `~/Projects/coding/arduino/uno/arduino-infinity-portal`
+2. Animation Programs: Six main programs (spiral, pulse, wave, chaos, ambient, idle) with Pi cue control
+3. Portal Cues: Pi sends high-level commands (program, BPM, intensity) via serial/MIDI, not frame data
+4. Joystick: Single 127 pulse per press (edge), no 0 release message
+5. Buttons: Fixed velocity for v1 (no dynamic velocity / aftertouch)
+6. Startup Self-Test: Implement portal animation sequence + success indication
+7. Remote Config Protocol: Deferred (no SysEx / config channel v1)
+8. Pot Latency Budget: ≤20 ms acceptable → current smoothing & rate limit chosen accordingly
+9. Portal Control: Teensy fully owns animation rendering; Pi sends only semantic cues
+10. Idle Brightness: Cap at 15% of max brightness during idle/ambient programs
+11. BPM Sync: Portal animations sync to Pi sequencer BPM via rate control cues
+12. License: Apache 2.0 (aligns with overall project license)
 
 ---
 ## 17. Immediate Next Actions
-- [ ] Confirm answers to open questions (esp. LED count & joystick semantics)
-- [ ] Scaffold directory + headers (`pins.h`, `config.h`, `main.cpp`)
+- [ ] Confirm integration approach for pre-existing portal code
+- [ ] Scaffold directory + headers (`pins.h`, `config.h`, `main.cpp`, `portal_controller.h`)
 - [ ] Implement Phase 1 MVP & commit
-- [ ] Start loop timing instrumentation before adding LED complexity
+- [ ] Start loop timing instrumentation before adding portal complexity
+- [ ] Test portal animation programs individually before integration
 
 ---
 ## 18. Directory Skeleton (Proposed)
@@ -282,6 +314,10 @@ teensy/
       midi_out.h
       led_fx.cpp
       led_fx.h
+      portal_controller.cpp
+      portal_controller.h
+      portal_cues.cpp
+      portal_cues.h
       diagnostics.cpp
       diagnostics.h
     include/ (optional if using PlatformIO)
@@ -302,13 +338,14 @@ void loop() {
     processSwitches();
     processPots();             // smoothing + CC
     updateIdleTimer();
-    scheduleLedFrame();
+    handlePortalCues();        // process Pi → Teensy commands
+    schedulePortalFrame();
   }
-  if (shouldRenderLedFrame()) {
-    renderLedFrame();
+  if (shouldRenderPortalFrame()) {
+    portalController.update();
     FastLED.show();
   }
-  while (usbMIDI.read()) { /* handle incoming (future config) */ }
+  while (usbMIDI.read()) { /* handle incoming portal cues */ }
 }
 ```
 
@@ -318,18 +355,23 @@ void loop() {
 - Pots produce monotonic CC ramps on slow sweep; jitter ≤ ±1 when still; event latency ≤20 ms
 - Joystick directions emit a single 127 pulse per actuation (re-arm enforced)
 - Switches latch ON (127) / OFF (0) correctly
-- LED press feedback, pot nudge, mode glow, idle ambient (≤15% brightness), startup self-test all functional
+- Portal integration functional: all 6 animation programs working (spiral, pulse, wave, chaos, ambient, idle)
+- Portal cue system: receives and responds to Pi commands for program switching and BPM sync
+- Button press visual feedback, pot activity feedback, idle ambient mode (≤15% brightness)
+- Portal startup self-test sequence functional
 - CPU headroom > 90%; no memory fragmentation (no dynamic alloc in loop)
-- Soak test 4 hr: no stuck notes, no crash, loop time stable
+- Soak test 4 hr: no stuck notes, no crash, loop time stable, portal animations stable
 
 ---
 ## 21. Future Enhancements (Backlog)
 - SysEx config channel
 - Input event batching (pack multiple changes in a millisecond bucket)
 - HID composite device (MIDI + Serial + Custom) for config UI
-- Palette streaming from Pi
-- MIDI clock in (from Pi) to flash tempo LED group
+- Portal cross-fade between programs for seamless transitions
+- Advanced portal effects (particle systems, 3D-style effects)
+- MIDI clock in (from Pi) to flash tempo portal group
+- Portal color palette streaming from Pi
 
 ---
 
-Provide clarifications for open questions (#16) to refine this roadmap before coding Phase 2.
+Provide clarifications for integration approach and portal cue protocol to refine this roadmap before coding Phase 3.

@@ -7,13 +7,14 @@ License: Apache-2.0
 
 ---
 ## 1. Purpose & Vision
-Create a durable, low-latency, arcade-style generative music installation where physical interaction (buttons, knobs, joystick, switches) influences evolving musical structures and ambient LED feedback. The Teensy firmware provides deterministic, reliable hardware → MIDI translation + LED animation; the Raspberry Pi engine provides generative logic, synthesis (SuperCollider), mutation, and high-level reaction to performer input.
+Create a durable, low-latency, arcade-style generative music installation where physical interaction (buttons, knobs, joystick, switches) influences evolving musical structures and visual portal feedback. The Teensy firmware provides deterministic, reliable hardware → MIDI translation + RGB LED infinity portal animation; the Raspberry Pi engine provides generative logic, MIDI routing to external synths, mutation, and portal animation cues.
 
 Primary Goals:
 - Immediate tactile response (<10 ms perceptual latency for button notes)
 - Long-running stability (≥8 hr daily operation)
 - Modular generative layer (swap/extend rules without reflashing firmware)
 - Clear separation of responsibilities (hardware vs. composition logic)
+- Configurable external synth support with CC profile system
 
 Non-Goals (v1):
 - Streaming LED frame control from Pi
@@ -28,7 +29,7 @@ Non-Goals (v1):
 | Pots | 6 (K1–K6) | Analog A0–A5 → CC 20–25 |
 | Joystick | 4 directions | D22–D25 → CC 50–53 (edge pulse 127) |
 | Toggles | 3 (S1–S3) | D26–D28 → CC 60–62 (latching 0/127) |
-| LED Strip | 60 pixels | Data D14 (WS2812B/SK6812) |
+| RGB LED Infinity Portal | ~60 pixels | Data D14 (WS2812B/SK6812), pre-existing portal with animation programs |
 
 Spare Pins Freed: D12, D13 (reserved future features)
 
@@ -51,9 +52,9 @@ Channel: 1 (Channel 2 reserved for future alternate semantic layer).
 | Button press → MIDI dispatch | ≤5 ms typical, ≤10 ms worst |
 | Pot move → CC emitted (above deadband) | ≤20 ms |
 | Sequencer tick jitter (Pi) | <2 ms |
-| MIDI → Synth onset (Pi) | <10 ms typical |
+| MIDI → External Synth onset (Pi) | <10 ms typical |
 | MCU main loop time | <1000 µs worst at 1 kHz |
-| LED frame update cadence | 60–100 Hz |
+| Portal animation frame update | 60–100 Hz |
 
 ---
 ## 5. Teensy Firmware Responsibilities
@@ -61,14 +62,16 @@ Channel: 1 (Channel 2 reserved for future alternate semantic layer).
 2. Debounce digital inputs (5–8 ms window typical).
 3. Smooth analog (EMA α≈0.25) + deadband (±2) + rate limiting (≥15 ms unless large delta).
 4. Emit only state changes (no redundant CC / Note spam).
-5. Provide LED animations:
-   - Button Press Pulse
-   - Pot Nudge Flash
-   - Mode / Switch Glow
-   - Idle Ambient (≤15% brightness cap after 30s inactivity)
-   - Startup Self-Test (chase + color sweep + success blink)
-6. Maintain deterministic timing (avoid dynamic allocation in loop).
-7. Offer minimal diagnostics (serial if DEBUG=1).
+5. Provide RGB LED infinity portal animations using pre-existing portal code:
+   - Animation Programs: spiral, pulse, wave, chaos, ambient, idle
+   - Program switching via cues from Pi
+   - BPM synchronization via rate control from Pi
+   - Button/interaction visual feedback
+   - Idle mode ambient animations (≤15% brightness cap after 30s inactivity)
+   - Startup self-test (chase + color sweep + success blink)
+6. Receive portal animation cues from Pi (program changes, rate sync, idle mode).
+7. Maintain deterministic timing (avoid dynamic allocation in loop).
+8. Offer minimal diagnostics (serial if DEBUG=1).
 
 Out of Scope (v1): Config protocol, dynamic palette streaming, velocity sensing, SysEx control.
 
@@ -79,22 +82,46 @@ Out of Scope (v1): Config protocol, dynamic palette streaming, velocity sensing,
 3. Sequencer core (steps, probability, density, swing, drift, bar-aligned scale changes).
 4. Mutation engine: scheduled mild parameter perturbations every 2–4 minutes.
 5. Scale mapping: major/minor/pentatonic (extensible) – changes quantized to bar boundary.
-6. Synthesis via SuperCollider (`scsynth`) over OSC (play notes, set params).
-7. Idle mode detection (30s inactivity) → ambient parameter profile & LED idle cue.
-8. Emit minimal LED cues (JSON or simple tokens) if/when needed (note, param, mode, idle transitions). Teensy interprets; Pi does not push raw LED frames.
-9. Structured logging + (future) metrics endpoint.
+6. External synth support via MIDI output with configurable CC profiles:
+   - Korg NTS1 MK2 (flagship synth with complete parameter mapping)
+   - Generic Analog (standard subtractive synthesis parameters)
+   - FM Synth (operator-based synthesis parameters)
+   - Custom user-defined CC mappings via YAML configuration
+7. Multi-synth MIDI output routing and latency optimization.
+8. Idle mode detection (30s inactivity) → ambient parameter profile.
+9. Portal animation control via cues sent back to Teensy:
+   - Program switching (spiral, pulse, wave, chaos, ambient, idle)
+   - Rate synchronization with sequencer BPM
+   - Idle/ambient mode visual transitions
+   - Activity-based intensity control
+10. Structured logging + (future) metrics endpoint.
+
+Note: SuperCollider synthesis backend removed in favor of external hardware synths.
 
 ---
-## 7. LED Index Allocation (Firmware)
-| Range | Purpose |
-|-------|---------|
-| 0–9 | Buttons B1–B10 |
-| 10–15 | Pots K1–K6 |
-| 16–19 | Joystick directions |
-| 20–22 | Switches S1–S3 |
-| 23–59 | Ambient / mode / idle band |
+## 7. Portal Animation Programs & Cue System
+The Teensy firmware integrates pre-existing infinity portal code with the following programs:
 
-Global brightness cap: 160/255. Idle brightness cap: 15% of cap.
+| Program | Description | Sync Behavior |
+|---------|-------------|---------------|
+| `spiral` | Rotating spiral patterns | BPM-synced rotation speed |
+| `pulse` | Rhythmic pulsing | Beat-synchronized pulses |
+| `wave` | Flowing wave patterns | Rate follows sequencer activity |
+| `chaos` | Random/chaotic patterns | Intensity follows mutation events |
+| `ambient` | Slow, peaceful patterns | Low intensity, slow rate |
+| `idle` | Minimal ambient mode | Very low intensity (≤15% brightness) |
+
+**Pi → Teensy Portal Cues:**
+- Program change commands (switch between animation types)
+- Rate synchronization (sync animation speed to sequencer BPM)
+- Intensity control (based on sequencer density and activity)
+- Idle mode transitions (automatic switch to ambient/idle programs)
+
+**Portal Integration Points:**
+- Button presses trigger visual feedback in current program
+- Pot movements create brief intensity/color shifts
+- Scale changes may trigger program transitions
+- Mutation events can cause chaos program activation
 
 ---
 ## 8. Code Style & Conventions
@@ -117,7 +144,7 @@ Global brightness cap: 160/255. Idle brightness cap: 15% of cap.
 
 ---
 ## 9. Configuration
-Primary runtime config: `rpi/engine/config.yaml` (validated by `config.py`). Editable fields include sequencer parameters, mutation intervals, idle timings, voice count, logging level.
+Primary runtime config: `rpi/engine/config.yaml` (validated by `config.py`). Editable fields include sequencer parameters, mutation intervals, idle timings, external synth CC profiles, MIDI routing, portal animation settings, and logging level.
 
 Firmware compile-time configuration: `config.h` (to be created) with constants specified in roadmap (e.g., `SCAN_HZ`, `DEBOUNCE_MS`).
 
@@ -127,10 +154,11 @@ Firmware compile-time configuration: `config.h` (to be created) with constants s
 |-------|----------|--------|
 | Teensy | Stuck button (held >5s) | Force NoteOff + log (DEBUG) |
 | Teensy | Rapid pot jitter | Increase smoothing temporarily |
-| Teensy | LED refresh overrun | Drop frame / reduce update rate |
+| Teensy | Portal animation overrun | Reduce frame rate / simplify current program |
 | Pi | MIDI port disconnect | Retry with exponential backoff |
-| Pi | Backend (scsynth) crash | Restart process; escalate after N failures |
+| Pi | External synth disconnect | Continue sequencing; attempt reconnection |
 | Pi | Clock drift | Adjust next tick via accumulated error |
+| Pi | Portal cue transmission failure | Log warning; continue without visual sync |
 
 ---
 ## 11. Testing Strategy Summary
@@ -166,8 +194,10 @@ Pi Engine:
 - SysEx configuration or small binary protocol
 - Palette streaming & cross-fade scenes
 - External clock sync (Ableton Link / MIDI clock)
-- Higher voice polyphony (config) & dynamic voice allocation
+- Multi-synth polyphonic voice management
+- Advanced portal visual effects (cross-fade scenes, palette streaming)
 - Additional sensors (freed pins D12,D13)
+- Preset management and pattern recording
 
 ---
 ## 15. AI Agent Collaboration Guidelines
@@ -176,7 +206,8 @@ This spec exists to make automated assistance consistent.
 When extending firmware:
 - Do NOT change pin allocations unless spec updated.
 - Preserve public headers (`pins.h`, upcoming `config.h`) structure; append rather than reorder unless necessary.
-- When adding constants, group by function (timing, LED, MIDI).
+- When adding portal animation programs, ensure they integrate with existing cue system.
+- When adding constants, group by function (timing, portal, MIDI).
 - Add tests or diagnostic notes for new behavior.
 
 When extending Pi engine:
@@ -187,6 +218,8 @@ When extending Pi engine:
 - Keep config schema backward compatible (add new keys with defaults).
 - Any new semantic action must map cleanly from existing MIDI ranges or use reserved CC after discussion (prefer Pi-side remapping before modifying firmware mapping).
 - Maintain separation: mapping layer should not contain direct synthesis logic.
+- When adding external synth profiles, follow the established CC profile system in config.yaml.
+- Portal animation cues should remain lightweight and semantic (program/rate/intensity) rather than frame-level control.
 
 General:
 - Confirm impact footprint (lines touched, behavioral changes) in PR summary.
@@ -196,12 +229,15 @@ General:
 Ask for Clarification If:
 - New hardware peripherals proposed.
 - MIDI mapping expansion collides with existing note/CC usage.
-- Memory usage for LED features expands beyond originally assumed footprint.
+- Portal animation requirements exceed existing program capabilities.
+- External synth profiles require non-standard MIDI implementation.
 
 Assumptions Allowed Without Asking:
 - Minor refactors improving readability (no behavior change).
 - Adding lightweight inline helper functions.
 - Expanding scale list (non-breaking) if triggered by existing scale_select mechanism.
+- Adding new external synth CC profiles following established pattern.
+- Adding new portal animation programs that integrate with existing cue system.
 
 ---
 ## 16. Commit & PR Conventions
@@ -218,25 +254,33 @@ Assumptions Allowed Without Asking:
 | Ambient Mode | Reduced-intensity idle behavior after inactivity |
 | Mutation Cycle | Scheduled batch of automatic parameter tweaks |
 | Semantic Action | Logical intent derived from raw MIDI (e.g., set_tempo) |
+| CC Profile | Synth-specific mapping of parameters to MIDI CC numbers |
+| Portal Program | Pre-defined animation pattern for the infinity portal |
+| Portal Cue | High-level command sent from Pi to Teensy for visual control |
 
 ---
 ## 18. Acceptance Checklist (Spec Compliance)
 Firmware v1 must:
 - Emit only defined MIDI set (Notes 60–69, CC 20–25, 50–53, 60–62)
+- Integrate pre-existing infinity portal animation code
+- Support portal program switching and BPM synchronization via Pi cues
 - Obey latency & brightness caps
 - Provide startup self-test
 
 Engine v1 must:
 - Honor bar-aligned scale changes
 - Produce generative notes with probability & mutation
+- Support external synth MIDI output with configurable CC profiles
+- Send portal animation cues to Teensy for visual synchronization
 - Enforce idle profile after 30s inactivity
 
 ---
 ## 19. Change Management
 Update this file when:
-- Hardware count changes (buttons, LEDs, controls) -> Section 2/7
+- Hardware count changes (buttons, portal, controls) -> Section 2/7
 - Mapping changes -> Sections 3/5/7
 - Performance targets revised -> Section 4
+- New external synth profiles or portal programs added -> Sections 6/7/14
 - New protocols or backends added -> Sections 6/14
 
 ---

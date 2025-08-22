@@ -3,6 +3,7 @@ midi:
   output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
   input_channel: 1
   output_channel: 10
+
 mapping:
   buttons:
     "60-69": trigger_step
@@ -21,6 +22,7 @@ mapping:
     "60": mode
     "61": palette
     "62": drift
+
 sequencer:
   steps: 32
   bpm: 85
@@ -45,16 +47,16 @@ mutation:
   interval_min_s: 30
   interval_max_s: 60
   max_changes_per_cycle: 3
+
 idle:
   timeout_ms: 30000
   ambient_profile: slow_fade
   fade_in_ms: 4000
   fade_out_ms: 800
-synth:
-  backend: supercollider
-  voices: 8
+
 logging:
   level: INFO
+  
 api:
   enabled: true
   port: 8080
