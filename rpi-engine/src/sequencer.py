@@ -225,6 +225,20 @@ class Sequencer:
         self.state.set('velocity_range', velocity_range, source='sequencer')
         log.info(f"velocity_params_set base={base_velocity} range={velocity_range}")
     
+    def set_gate_length_params(self, base_gate_length: float = 0.8, gate_length_range: float = 0.3):
+        """Set gate length variation parameters.
+        
+        Args:
+            base_gate_length: Base gate length factor (0.1-1.0)
+            gate_length_range: Range for gate length variation (+/- from base)
+        """
+        base_gate_length = max(0.1, min(1.0, base_gate_length))
+        gate_length_range = max(0.0, min(0.9, gate_length_range))
+        
+        self.state.set('base_gate_length', base_gate_length, source='sequencer')
+        self.state.set('gate_length_range', gate_length_range, source='sequencer')
+        log.info(f"gate_length_params_set base={base_gate_length} range={gate_length_range}")
+    
     def get_pattern_preset(self, preset_name: str) -> List[bool]:
         """Get a predefined step pattern.
         
@@ -475,7 +489,7 @@ class Sequencer:
     def _generate_step_note(self, step: int):
         """
         Generate a note event for the given step, considering density and probability.
-        Phase 5.5: Enhanced with per-step probabilities, configurable patterns, and velocity variation.
+        Phase 5.5: Enhanced with per-step probabilities, configurable patterns, velocity variation, and gate length variation.
         """
         if not self._note_callback:
             return
@@ -526,9 +540,23 @@ class Sequencer:
             velocity = int(base_velocity + (velocity_range * (final_velocity_factor - 0.5)))
             velocity = max(1, min(127, velocity))  # Clamp to MIDI range
             
+            # Gate length variation based on probability values (similar to velocity)
             bpm = self.state.get('bpm', 110.0)
             step_duration = 60.0 / (bpm * self._steps_per_beat)
-            gate_length_factor = self.state.get('gate_length', 0.8)
+            
+            # Use configurable gate length parameters with variation
+            base_gate_length = self.state.get('base_gate_length', 0.8)
+            gate_length_range = self.state.get('gate_length_range', 0.3)  # +/- range
+            
+            # Scale gate length based on step probability (higher prob = longer gate)
+            # Also add some randomness based on the probability
+            gate_factor = 0.5 + (step_prob * 0.5)  # 0.5 to 1.0 range
+            gate_random = random.uniform(-0.15, 0.15) * step_prob  # Subtle randomness for higher probs
+            
+            final_gate_factor = max(0.1, min(1.0, gate_factor + gate_random))
+            gate_length_factor = base_gate_length + (gate_length_range * (final_gate_factor - 0.5))
+            gate_length_factor = max(0.1, min(1.0, gate_length_factor))  # Clamp to valid range
+            
             gate_length = step_duration * gate_length_factor
             
             note_event = NoteEvent(
@@ -541,7 +569,7 @@ class Sequencer:
             
             try:
                 self._note_callback(note_event)
-                log.debug(f"note_generated step={step} note={note} velocity={velocity} step_prob={step_prob:.2f}")
+                log.debug(f"note_generated step={step} note={note} velocity={velocity} gate_length={gate_length:.3f} step_prob={step_prob:.2f}")
             except Exception as e:
                 log.error(f"Note callback error: {e}")
 
