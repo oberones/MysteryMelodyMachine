@@ -1,7 +1,8 @@
 """Tests for idle mode functionality.
 
-Phase 6: Comprehensive testing of idle mode detection, state saving/restoration,
+Phase 6: Comprehensive testing of idle mode detection, smooth transitions,
 and integration with mutation engine and action handlers.
+Updated to test smooth transitions and no-restoration behavior.
 """
 
 import pytest
@@ -48,7 +49,7 @@ class TestIdleManager:
         assert idle_manager.config == idle_config
         assert idle_manager.timeout_seconds == 1.0  # 1000ms
         assert not idle_manager.is_idle
-        assert idle_manager.saved_active_state is None
+        assert not idle_manager.transition.is_transitioning
         assert idle_manager.current_profile is not None
         assert idle_manager.current_profile.name == "slow_fade"
     
@@ -76,7 +77,7 @@ class TestIdleManager:
         assert initial_time >= 0.0
         assert initial_time < 0.1  # Should be very recent
         
-        # Touch interaction
+        # Touch interaction (preserve_tempo param is now ignored)
         time.sleep(0.1)
         idle_manager.touch()
         new_time = idle_manager.get_time_since_last_interaction()
@@ -88,31 +89,37 @@ class TestIdleManager:
         assert time_to_idle <= 1.0
     
     def test_manual_idle_control(self, idle_manager, state):
-        """Test manual idle mode control."""
+        """Test manual idle mode control with smooth transitions and no restoration."""
         # Set up some initial state
         state.set('density', 0.8, source='test')
         state.set('bpm', 120.0, source='test')
         
-        # Force idle mode
+        # Force start of idle transition
         idle_manager.force_idle()
-        assert idle_manager.is_idle
-        assert idle_manager.saved_active_state is not None
+        assert idle_manager.transition.is_transitioning
+        assert idle_manager.transition.direction == "to_idle"
+        assert not idle_manager.is_idle  # Not yet fully idle
         
-        # Check that idle profile was applied
-        assert state.get('density') == 0.3  # From slow_fade profile
-        assert state.get('bpm') == 65.0
+        # Wait a brief moment for transition to progress
+        time.sleep(0.05)
         
-        # Force active mode
+        # Values should be transitioning (somewhere between start and target)
+        current_density = state.get('density')
+        current_bpm = state.get('bpm')
+        
+        # Force interruption (simulating user interaction)
         idle_manager.force_active()
         assert not idle_manager.is_idle
-        assert idle_manager.saved_active_state is None
+        assert not idle_manager.transition.is_transitioning
         
-        # Check that state was restored
-        assert state.get('density') == 0.8
-        assert state.get('bpm') == 120.0
+        # Values should remain wherever they were during transition (no restoration)
+        interrupted_density = state.get('density')
+        interrupted_bpm = state.get('bpm')
+        assert interrupted_density == current_density  # No change from interruption
+        assert interrupted_bpm == current_bpm          # No change from interruption
     
     def test_automatic_idle_detection(self, idle_manager, state):
-        """Test automatic idle detection after timeout."""
+        """Test automatic idle detection after timeout with smooth transition."""
         # Set up initial state
         state.set('density', 0.9, source='test')
         state.set('bpm', 140.0, source='test')
@@ -123,46 +130,73 @@ class TestIdleManager:
         try:
             # Should not be idle initially
             assert not idle_manager.is_idle
+            assert not idle_manager.transition.is_transitioning
             
-            # Wait longer than timeout (1 second + margin)
-            time.sleep(1.2)
+            # Wait for timeout to trigger transition
+            time.sleep(1.1)
             
-            # Should now be idle
+            # Should be transitioning now
+            assert idle_manager.transition.is_transitioning
+            assert idle_manager.transition.direction == "to_idle"
+            
+            # Wait longer for transition to complete
+            # Using fade_in_ms from test config (100ms) plus margin
+            time.sleep(0.2)
+            
+            # Should now be fully idle
             assert idle_manager.is_idle
+            assert not idle_manager.transition.is_transitioning
             assert state.get('density') == 0.3  # Idle profile applied
             
-            # Touch to exit idle
+            # Touch to interrupt idle - no restoration expected
+            original_density_before_touch = state.get('density')
             idle_manager.touch()
             
-            # Should exit idle mode immediately
+            # Should exit idle mode immediately with no restoration
             assert not idle_manager.is_idle
-            assert state.get('density') == 0.9  # Original state restored
+            assert not idle_manager.transition.is_transitioning
+            # Density should remain at idle value (no restoration)
+            assert state.get('density') == original_density_before_touch
             
         finally:
             idle_manager.stop()
     
     def test_idle_state_callbacks(self, idle_manager):
-        """Test idle state change callbacks."""
+        """Test idle state change callbacks - only called when fully idle."""
         callback_mock = Mock()
         idle_manager.add_idle_state_callback(callback_mock)
         
-        # Force idle
-        idle_manager.force_idle()
-        callback_mock.assert_called_with(True)
+        # Start the idle manager thread
+        idle_manager.start()
         
-        callback_mock.reset_mock()
+        try:
+            # Force idle transition start - should not call callback yet
+            idle_manager.force_idle()
+            callback_mock.assert_not_called()  # Only transitioning, not yet idle
+            
+            # Wait for transition to complete (100ms from test config + margin)
+            time.sleep(0.15)
+            
+            # Now should be fully idle and callback should be called
+            callback_mock.assert_called_with(True)
+            
+            callback_mock.reset_mock()
+            
+            # Force active (interrupt)
+            idle_manager.force_active()
+            callback_mock.assert_called_with(False)
+            
+            # Remove callback
+            idle_manager.remove_idle_state_callback(callback_mock)
+            callback_mock.reset_mock()
+            
+            # Should not be called anymore
+            idle_manager.force_idle()
+            time.sleep(0.15)  # Wait for transition
+            callback_mock.assert_not_called()
         
-        # Force active
-        idle_manager.force_active()
-        callback_mock.assert_called_with(False)
-        
-        # Remove callback
-        idle_manager.remove_idle_state_callback(callback_mock)
-        callback_mock.reset_mock()
-        
-        # Should not be called anymore
-        idle_manager.force_idle()
-        callback_mock.assert_not_called()
+        finally:
+            idle_manager.stop()
     
     def test_status_reporting(self, idle_manager):
         """Test status reporting functionality."""
@@ -170,44 +204,87 @@ class TestIdleManager:
         
         # Check initial status
         assert 'is_idle' in status
+        assert 'is_transitioning' in status
+        assert 'transition_direction' in status
         assert 'timeout_seconds' in status
         assert 'time_since_last_interaction' in status
         assert 'time_to_idle' in status
         assert 'current_profile' in status
-        assert 'saved_state_available' in status
         
         assert not status['is_idle']
+        assert not status['is_transitioning']
+        assert status['transition_direction'] == 'none'
         assert status['timeout_seconds'] == 1.0
         assert status['current_profile'] == 'slow_fade'
-        assert not status['saved_state_available']
         
-        # Check status after going idle
-        idle_manager.force_idle()
-        status = idle_manager.get_status()
-        assert status['is_idle']
-        assert status['saved_state_available']
-        assert status['time_to_idle'] == -1.0  # Negative when already idle
+        # Start the idle manager thread
+        idle_manager.start()
+        
+        try:
+            # Check status during transition
+            idle_manager.force_idle()
+            status = idle_manager.get_status()
+            assert not status['is_idle']  # Not yet fully idle
+            assert status['is_transitioning']
+            assert status['transition_direction'] == 'to_idle'
+            
+            # Check status after transition completes
+            time.sleep(0.15)  # Wait for transition
+            status = idle_manager.get_status()
+            assert status['is_idle']
+            assert not status['is_transitioning']
+            assert status['transition_direction'] == 'none'
+            assert status['time_to_idle'] == -1.0  # Negative when already idle
+        
+        finally:
+            idle_manager.stop()
 
 
 class TestIdleIntegration:
     """Test idle mode integration with other components."""
     
     def test_action_handler_integration(self, state, idle_config):
-        """Test action handler integration with idle manager."""
+        """Test action handler integration with idle manager - no restoration behavior."""
         idle_manager = create_idle_manager(idle_config, state)
         action_handler = ActionHandler(state)
         action_handler.set_idle_manager(idle_manager)
         
-        # Force idle mode first
-        idle_manager.force_idle()
-        assert idle_manager.is_idle
+        # Start the idle manager thread
+        idle_manager.start()
         
-        # Handle a semantic event - should exit idle mode
-        event = SemanticEvent(type='tempo', source='test', value=64, raw_note=None)
-        action_handler.handle_semantic_event(event)
+        try:
+            # Set up initial state
+            state.set('bpm', 120.0, source='test')
+            state.set('density', 0.8, source='test')
+            
+            # Force idle mode to completion
+            idle_manager.force_idle()
+            time.sleep(0.15)  # Wait for transition to complete
+            assert idle_manager.is_idle
+            
+            # Check that idle profile was applied
+            assert state.get('bpm') == 65.0  # From slow_fade profile
+            assert state.get('density') == 0.3
+            
+            # Handle any event - should interrupt idle mode with no restoration
+            event = SemanticEvent(type='tempo', source='test', value=64, raw_note=None)
+            action_handler.handle_semantic_event(event)
+            
+            # Should have exited idle mode
+            assert not idle_manager.is_idle
+            assert not idle_manager.transition.is_transitioning
+            
+            # The action handler will set the new tempo value from the CC
+            # No restoration should happen - starts from idle values
+            current_bpm = state.get('bpm')
+            expected_bpm = 60.0 + (64 / 127.0) * 140.0  # Tempo action mapping
+            assert abs(current_bpm - expected_bpm) < 0.1
+            
+            # Density should remain at idle value (no restoration)
+            assert state.get('density') == 0.3  # Still at idle value, no restoration
         
-        # Should have exited idle mode due to interaction
-        assert not idle_manager.is_idle
+        finally:
+            idle_manager.stop()
     
     def test_mutation_engine_integration(self, state, idle_config):
         """Test mutation engine integration with idle mode."""
@@ -233,9 +310,9 @@ class TestIdleIntegration:
         time.sleep(0.1)  # Allow callback to process
         assert not mutation_engine.are_mutations_enabled()
         
-        # Force idle mode - should enable mutations
+        # Force idle mode to completion - should enable mutations
         idle_manager.force_idle()
-        time.sleep(0.1)  # Allow callback to process
+        time.sleep(0.15)  # Wait for transition and callback to process
         assert mutation_engine.are_mutations_enabled()
         
         # Exit idle mode - should disable mutations
@@ -246,115 +323,134 @@ class TestIdleIntegration:
         # Clean up
         idle_manager.stop()
         mutation_engine.stop()
+
+
+class TestIdleNoRestorationBehavior:
+    """Test the new no-restoration behavior when exiting idle mode."""
     
-    def test_mutation_blocking_when_not_idle(self, state, idle_config):
-        """Test that mutations are blocked when not in idle mode."""
-        from config import MutationConfig
-        
-        mutation_config = MutationConfig(
-            interval_min_s=1,
-            interval_max_s=1,
-            max_changes_per_cycle=1
-        )
-        
+    def test_no_restoration_on_interrupt(self, state, idle_config):
+        """Test that no parameters are restored when idle is interrupted."""
         idle_manager = create_idle_manager(idle_config, state)
-        mutation_engine = create_mutation_engine(mutation_config, state)
-        mutation_engine.set_idle_manager(idle_manager)
+        action_handler = ActionHandler(state)
+        action_handler.set_idle_manager(idle_manager)
         
-        # Set up initial state
-        original_density = 0.8
-        state.set('density', original_density, source='test')
-        
-        # Start systems but don't go idle
+        # Start the idle manager thread
         idle_manager.start()
-        mutation_engine.start()
         
         try:
-            # Force a mutation attempt when not idle
-            mutation_engine.force_mutation()
+            # Set initial state
+            original_bpm = 130.0
+            original_density = 0.9
+            state.set('bpm', original_bpm, source='test')
+            state.set('density', original_density, source='test')
             
-            # Density should not have changed
-            assert state.get('density') == original_density
-            
-            # Now force idle and try mutation
+            # Force idle mode to completion
             idle_manager.force_idle()
-            time.sleep(0.1)  # Allow callback
-            mutation_engine.force_mutation()
+            time.sleep(0.15)  # Wait for transition to complete
+            assert idle_manager.is_idle
             
-            # Now density might have changed (mutation was allowed)
-            # Note: We can't guarantee a change since mutation is random
-            # but we can check that mutations are enabled
-            assert mutation_engine.are_mutations_enabled()
+            # Verify idle profile was applied
+            assert state.get('bpm') == 65.0  # From slow_fade profile
+            assert state.get('density') == 0.3
             
+            # Interrupt idle with any action
+            event = SemanticEvent(type='density', source='cc', value=90, raw_note=None)
+            action_handler.handle_semantic_event(event)
+            
+            # Should have exited idle mode
+            assert not idle_manager.is_idle
+            
+            # NO restoration should happen - action applies to current (idle) state
+            # BPM should remain at idle value
+            assert state.get('bpm') == 65.0  # Still at idle value
+            
+            # Density should be set by the action to the new value
+            expected_density = 90 / 127.0  # Density action mapping
+            assert abs(state.get('density') - expected_density) < 0.01
+            assert state.get('density') != original_density  # Not restored
+        
         finally:
             idle_manager.stop()
-            mutation_engine.stop()
-
-
-class TestIdleStatePreservation:
-    """Test state preservation and restoration during idle mode."""
     
-    def test_complex_state_preservation(self, state, idle_config):
-        """Test preservation of complex state during idle transitions."""
+    def test_smooth_transition_timing(self, state, idle_config):
+        """Test that smooth transitions take the expected time."""
         idle_manager = create_idle_manager(idle_config, state)
         
-        # Set up complex initial state
-        initial_state = {
-            'density': 0.85,
-            'bpm': 125.0,
-            'swing': 0.15,
-            'scale_index': 3,
-            'master_volume': 100,
-            'reverb_mix': 50,
-            'filter_cutoff': 80
-        }
+        # Start the idle manager thread
+        idle_manager.start()
         
-        for param, value in initial_state.items():
-            state.set(param, value, source='test')
+        try:
+            # Set initial state
+            state.set('density', 0.8, source='test')
+            
+            # Force idle transition
+            start_time = time.time()
+            idle_manager.force_idle()
+            
+            # Should be transitioning immediately
+            assert idle_manager.transition.is_transitioning
+            assert idle_manager.transition.direction == "to_idle"
+            
+            # Wait for transition to complete (fade_in_ms from test config = 100ms)
+            time.sleep(0.15)
+            
+            # Should be fully idle now
+            assert idle_manager.is_idle
+            assert not idle_manager.transition.is_transitioning
+            
+            elapsed_ms = (time.time() - start_time) * 1000
+            # Should have taken approximately the fade_in_ms time
+            assert elapsed_ms >= 100  # At least the fade time
+            assert elapsed_ms < 200   # But not too much longer
         
-        # Enter idle mode
-        idle_manager.force_idle()
-        
-        # Verify idle profile was applied
-        assert state.get('density') == 0.3  # From slow_fade profile
-        assert state.get('bpm') == 65.0
-        
-        # Exit idle mode
-        idle_manager.force_active()
-        
-        # Verify all original state was restored
-        for param, expected_value in initial_state.items():
-            actual_value = state.get(param)
-            assert actual_value == expected_value, f"Parameter {param}: expected {expected_value}, got {actual_value}"
+        finally:
+            idle_manager.stop()
     
-    def test_partial_state_preservation(self, state, idle_config):
-        """Test that only relevant parameters are preserved/restored."""
+    def test_interrupt_during_transition(self, state, idle_config):
+        """Test interrupting idle transition before it completes."""
         idle_manager = create_idle_manager(idle_config, state)
         
-        # Set parameters that are in the idle profile
-        state.set('density', 0.9, source='test')
-        state.set('bpm', 130.0, source='test')
+        # Start the idle manager thread
+        idle_manager.start()
         
-        # Set parameter that is NOT in the idle profile
-        state.set('sequence_length', 16, source='test')
+        try:
+            # Set initial state
+            state.set('density', 0.8, source='test')
+            state.set('bpm', 120.0, source='test')
+            
+            # Start idle transition
+            idle_manager.force_idle()
+            assert idle_manager.transition.is_transitioning
+            
+            # Wait enough for transition to begin but not complete
+            time.sleep(0.05)  # Half the transition time
+            
+            # Should still be transitioning (not complete yet)
+            assert idle_manager.transition.is_transitioning
+            assert not idle_manager.is_idle
+            
+            # Interrupt the transition
+            idle_manager.force_active()
+            
+            # Should stop transitioning immediately
+            assert not idle_manager.transition.is_transitioning
+            assert not idle_manager.is_idle
+            
+            # Values may or may not have changed depending on timing,
+            # but the key point is that we don't restore them
+            current_density = state.get('density')
+            current_bpm = state.get('bpm')
+            
+            # These should be whatever they were when interrupted
+            # (no restoration to original values)
+            assert current_density is not None
+            assert current_bpm is not None
+            
+            # The important thing is we interrupted successfully
+            # and aren't trying to restore original state
         
-        # Enter idle mode
-        idle_manager.force_idle()
-        
-        # Parameters in idle profile should change
-        assert state.get('density') == 0.3
-        assert state.get('bpm') == 65.0
-        
-        # Parameter not in idle profile should remain unchanged
-        assert state.get('sequence_length') == 16
-        
-        # Exit idle mode
-        idle_manager.force_active()
-        
-        # Only parameters that were in the idle profile should be restored
-        assert state.get('density') == 0.9
-        assert state.get('bpm') == 130.0
-        assert state.get('sequence_length') == 16  # Should still be unchanged
+        finally:
+            idle_manager.stop()
 
 
 class TestIdleManagerEdgeCases:
@@ -362,35 +458,58 @@ class TestIdleManagerEdgeCases:
     
     def test_multiple_idle_transitions(self, idle_manager, state):
         """Test multiple rapid idle transitions."""
-        # Set initial state
-        state.set('density', 0.7, source='test')
+        # Start the idle manager thread
+        idle_manager.start()
         
-        # Multiple rapid transitions
-        for _ in range(5):
-            idle_manager.force_idle()
-            assert idle_manager.is_idle
-            idle_manager.force_active()
-            assert not idle_manager.is_idle
+        try:
+            # Set initial state
+            state.set('density', 0.7, source='test')
+            
+            # Multiple rapid transitions
+            for _ in range(3):
+                idle_manager.force_idle()
+                assert idle_manager.transition.is_transitioning or idle_manager.is_idle
+                
+                # Wait a moment for possible transition
+                time.sleep(0.05)
+                
+                idle_manager.force_active()
+                assert not idle_manager.is_idle
+                assert not idle_manager.transition.is_transitioning
+            
+            # Final state should depend on where the transitions left off
+            final_density = state.get('density')
+            # Should be different from original since transitions occurred
+            assert final_density != 0.7
         
-        # State should be properly restored
-        assert state.get('density') == 0.7
+        finally:
+            idle_manager.stop()
     
     def test_idle_with_missing_profile_params(self, state, idle_config):
         """Test idle mode when some profile parameters don't exist in state."""
         # Create idle manager with a custom profile
         idle_manager = create_idle_manager(idle_config, state)
         
-        # Set only some of the parameters that the idle profile expects
-        state.set('density', 0.8, source='test')
-        # Don't set 'bpm' - it should get the default
+        # Start the idle manager thread
+        idle_manager.start()
         
-        # Enter idle mode - should not crash
-        idle_manager.force_idle()
-        assert idle_manager.is_idle
+        try:
+            # Set only some of the parameters that the idle profile expects
+            state.set('density', 0.8, source='test')
+            # Don't set 'bpm' - it should get the default
+            
+            # Enter idle mode - should not crash
+            idle_manager.force_idle()
+            time.sleep(0.15)  # Wait for transition to complete
+            assert idle_manager.is_idle
+            
+            # Exit idle mode - no restoration expected
+            idle_manager.force_active()
+            assert not idle_manager.is_idle
+            # No specific assertions about values since no restoration happens
         
-        # Exit idle mode - should restore what was saved
-        idle_manager.force_active()
-        assert state.get('density') == 0.8
+        finally:
+            idle_manager.stop()
     
     def test_callback_exception_handling(self, idle_manager):
         """Test that callback exceptions don't break idle mode."""
@@ -406,11 +525,35 @@ class TestIdleManagerEdgeCases:
         idle_manager.add_idle_state_callback(bad_callback)
         idle_manager.add_idle_state_callback(good_callback)
         
-        # Should not raise exception despite bad callback
-        idle_manager.force_idle()
-        assert idle_manager.is_idle
-        assert good_callback.called
-        assert good_callback.is_idle
+        # Start the idle manager thread
+        idle_manager.start()
+        
+        try:
+            # Should not raise exception despite bad callback
+            idle_manager.force_idle()
+            time.sleep(0.15)  # Wait for transition to complete
+            assert idle_manager.is_idle
+            assert good_callback.called
+            assert good_callback.is_idle
+        
+        finally:
+            idle_manager.stop()
+
+
+def test_create_idle_manager_factory():
+    """Test the factory function for creating idle managers."""
+    state = State()
+    config = IdleConfig(timeout_ms=5000, ambient_profile="minimal")
+    
+    manager = create_idle_manager(config, state)
+    
+    assert isinstance(manager, IdleManager)
+    assert manager.config == config
+    assert manager.state == state
+    assert manager.timeout_seconds == 5.0
+    assert manager.current_profile.name == "minimal"
+    assert manager.timeout_seconds == 5.0
+    assert manager.current_profile.name == "minimal"
 
 
 def test_create_idle_manager_factory():

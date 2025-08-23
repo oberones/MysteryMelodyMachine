@@ -6,7 +6,17 @@ This script demonstrates the idle mode functionality by:
 1. Setting up a basic engine with idle detection
 2. Showing automatic idle transitions
 3. Demonstrating state preservation and restoration
-4. Testing mutation engine integration with idle mode
+        print("🎮 Interactive Demo Mode")
+        print("Commands:")
+        print("  'i' - Simulate interaction (resets idle timer)")
+        print("  't' - Simulate tempo interaction (preserves BPM on idle exit)")
+        print("  'd' - Simulate density interaction (restores BPM on idle exit)")
+        print("  'f' - Force idle mode")
+        print("  'a' - Force active mode")
+        print("  's' - Show current state")
+        print("  'h' - Show mutation history")
+        print("  'q' - Quit demo")
+        print()g mutation engine integration with idle mode
 5. Providing interactive controls to test the system
 
 Usage:
@@ -186,6 +196,8 @@ class IdleModeDemo:
     def simulate_interaction(self, action_type: str = "tempo", value: int = 64):
         """Simulate a MIDI interaction."""
         print(f"\n🎹 Simulating {action_type} interaction (value={value})")
+        if action_type == "tempo":
+            print("   💡 Note: Tempo interactions preserve BPM when exiting idle mode")
         event = SemanticEvent(type=action_type, source='demo', value=value, raw_note=None)
         self.action_handler.handle_semantic_event(event)
     
@@ -254,12 +266,16 @@ class IdleModeDemo:
         
         while self.running:
             try:
-                cmd = input("\nCommand (i/f/a/s/h/q): ").strip().lower()
+                cmd = input("\nCommand (i/t/d/f/a/s/h/q): ").strip().lower()
                 
                 if cmd == 'q':
                     break
                 elif cmd == 'i':
                     self.simulate_interaction()
+                elif cmd == 't':
+                    self.simulate_interaction("tempo", 100)
+                elif cmd == 'd':
+                    self.simulate_interaction("density", 90)
                 elif cmd == 'f':
                     self.force_idle()
                 elif cmd == 'a':

@@ -71,9 +71,12 @@ class ActionHandler:
     
     def handle_semantic_event(self, event: SemanticEvent):
         """Route a semantic event to the appropriate handler."""
+        # Determine if this is a tempo-related interaction
+        preserve_tempo = event.type == 'tempo'
+        
         # Notify idle manager of interaction
         if self._idle_manager:
-            self._idle_manager.touch()
+            self._idle_manager.touch(preserve_tempo=preserve_tempo)
         
         handler = self._action_handlers.get(event.type)
         if handler:

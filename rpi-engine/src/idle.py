@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, Callable
 import time
 import logging
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from state import State, StateChange
 from config import IdleConfig
 
@@ -24,12 +24,24 @@ class IdleProfile:
     description: str
 
 
+@dataclass
+class IdleTransitionState:
+    """Tracks the current state of idle transition."""
+    is_transitioning: bool = False
+    direction: str = "none"  # "to_idle", "from_idle", "none"
+    start_time: float = 0.0
+    start_values: Dict[str, Any] = field(default_factory=dict)
+    target_values: Dict[str, Any] = field(default_factory=dict)
+    duration_ms: int = 0
+
+
 class IdleManager:
     """Manages idle mode detection and ambient profile switching.
     
-    Tracks the last interaction timestamp and transitions to ambient mode
-    after the configured timeout. Automatically reverts to active mode
-    when new interactions are detected.
+    Tracks the last interaction timestamp and smoothly transitions to ambient mode
+    after the configured timeout. When interactions are detected during idle mode,
+    the system immediately stops the idle transition and allows normal parameter
+    modification without attempting to restore previous values.
     """
     
     def __init__(self, config: IdleConfig, state: State):
@@ -41,8 +53,8 @@ class IdleManager:
         self.last_interaction_time = time.time()
         self.is_idle = False
         
-        # State preservation
-        self.saved_active_state: Optional[Dict[str, Any]] = None
+        # Smooth transition state (no longer saving state for restoration)
+        self.transition = IdleTransitionState()
         
         # Idle profiles
         self.idle_profiles = self._create_idle_profiles()
@@ -112,7 +124,7 @@ class IdleManager:
                 self._idle_state_callbacks.remove(callback)
     
     def start(self):
-        """Start the idle detection thread."""
+        """Start the idle detection and transition thread."""
         if self._running:
             return
         
@@ -128,26 +140,31 @@ class IdleManager:
             self._thread.join(timeout=1.0)
         log.info("idle_manager_stopped")
     
-    def touch(self):
-        """Record an interaction, resetting the idle timer."""
+    def touch(self, preserve_tempo: bool = False):
+        """Record an interaction, resetting the idle timer.
+        
+        Args:
+            preserve_tempo: This parameter is now ignored as we no longer restore state.
+                           Kept for backward compatibility.
+        """
         with self._lock:
             self.last_interaction_time = time.time()
             
-            # If we were idle, exit idle mode
-            if self.is_idle:
-                self._exit_idle_mode()
+            # If we were idle or transitioning, immediately stop idle mode
+            if self.is_idle or self.transition.is_transitioning:
+                self._interrupt_idle_mode()
     
     def force_idle(self):
         """Force entry into idle mode (for testing/manual control)."""
         with self._lock:
-            if not self.is_idle:
-                self._enter_idle_mode()
+            if not self.is_idle and not self.transition.is_transitioning:
+                self._begin_idle_transition()
     
     def force_active(self):
         """Force exit from idle mode (for testing/manual control)."""
         with self._lock:
-            if self.is_idle:
-                self._exit_idle_mode()
+            if self.is_idle or self.transition.is_transitioning:
+                self._interrupt_idle_mode()
     
     def get_time_since_last_interaction(self) -> float:
         """Get time in seconds since last interaction."""
@@ -167,91 +184,134 @@ class IdleManager:
         with self._lock:
             return {
                 'is_idle': self.is_idle,
+                'is_transitioning': self.transition.is_transitioning,
+                'transition_direction': self.transition.direction,
                 'timeout_seconds': self.timeout_seconds,
                 'time_since_last_interaction': self.get_time_since_last_interaction(),
                 'time_to_idle': self.get_time_to_idle(),
                 'current_profile': self.current_profile.name if self.current_profile else None,
-                'saved_state_available': self.saved_active_state is not None,
             }
     
     def _idle_monitor_thread(self):
-        """Main idle detection thread."""
-        while self._running:
-            try:
-                with self._lock:
-                    time_since_interaction = time.time() - self.last_interaction_time
-                    
-                    if not self.is_idle and time_since_interaction >= self.timeout_seconds:
-                        self._enter_idle_mode()
-                    
-                # Check every second
-                time.sleep(1.0)
+        """Monitor for activity and manage transitions."""
+        try:
+            while self._running:
+                current_time = time.time()
                 
-            except Exception as e:
-                log.error(f"idle_monitor_error error={e}")
-                time.sleep(1.0)  # Continue despite errors
+                if self.transition.is_transitioning:
+                    self._update_transition()
+                    # Sleep briefly during transitions for smooth updates
+                    time.sleep(0.01)  # 10ms updates during transition
+                elif self.is_idle:
+                    # Already idle, just monitor
+                    time.sleep(0.1)  # 100ms when idle
+                elif current_time - self.last_interaction_time >= self.timeout_seconds:
+                    # Begin idle transition
+                    self._begin_idle_transition()
+                    # Don't sleep here, immediately check if transitioning
+                else:
+                    # Not idle, normal monitoring
+                    time.sleep(0.1)  # 100ms polling for faster response
+                    
+        except Exception as e:
+            log.error(f"Error in idle monitor thread: {e}")
+            import traceback
+            traceback.print_exc()
     
-    def _enter_idle_mode(self):
-        """Enter idle mode with ambient profile."""
-        if self.is_idle:
+    def _begin_idle_transition(self):
+        """Begin smooth transition to idle mode."""
+        if not self.current_profile:
+            log.warning("idle_transition_no_profile")
             return
         
-        log.info("idle_mode_enter")
+        log.info("idle_transition_begin")
         
-        # Save current active state
-        self.saved_active_state = {}
-        if self.current_profile:
-            for param in self.current_profile.params:
-                current_value = self.state.get(param)
-                if current_value is not None:
-                    self.saved_active_state[param] = current_value
+        # Set up transition state
+        self.transition.is_transitioning = True
+        self.transition.direction = "to_idle"
+        self.transition.start_time = time.time()
+        self.transition.duration_ms = self.config.fade_in_ms
+        self.transition.start_values = {}
+        self.transition.target_values = {}
         
-        log.debug(f"idle_state_saved params={list(self.saved_active_state.keys())}")
+        # Capture current values and set targets
+        for param, target_value in self.current_profile.params.items():
+            current_value = self.state.get(param)
+            if current_value is not None:
+                self.transition.start_values[param] = current_value
+                self.transition.target_values[param] = target_value
         
-        # Apply idle profile
-        if self.current_profile:
-            applied_params = []
-            for param, value in self.current_profile.params.items():
-                success = self.state.set(param, value, source='idle')
-                if success:
-                    applied_params.append(param)
+        log.debug(f"idle_transition_setup params={list(self.transition.start_values.keys())}")
+    
+    def _update_transition(self):
+        """Update the current transition state."""
+        elapsed_ms = (time.time() - self.transition.start_time) * 1000
+        progress = min(1.0, elapsed_ms / self.transition.duration_ms)
+        
+        # Apply linear interpolation for all parameters
+        for param in self.transition.start_values:
+            start_val = self.transition.start_values[param]
+            target_val = self.transition.target_values[param]
             
-            log.info(f"idle_profile_applied profile={self.current_profile.name} params={applied_params}")
+            # Linear interpolation
+            if isinstance(start_val, (int, float)) and isinstance(target_val, (int, float)):
+                current_val = start_val + (target_val - start_val) * progress
+                self.state.set(param, current_val, source='idle_transition')
+            else:
+                # For non-numeric values, switch at 50% progress
+                if progress >= 0.5:
+                    self.state.set(param, target_val, source='idle_transition')
         
+        # Check if transition is complete
+        if progress >= 1.0:
+            self._complete_idle_transition()
+        
+        # Debug log every 1 second during transition
+        if int(elapsed_ms) % 1000 < 100:  # Approximately every second
+            log.debug(f"idle_transition_progress progress={progress:.2f} elapsed_ms={elapsed_ms:.0f}")
+    
+    def _complete_idle_transition(self):
+        """Complete the transition to idle mode."""
+        log.info("idle_transition_complete")
+        
+        # Set final values
+        if self.current_profile:
+            for param, value in self.current_profile.params.items():
+                self.state.set(param, value, source='idle')
+        
+        # Mark as fully idle
         self.is_idle = True
+        self.transition.is_transitioning = False
+        self.transition.direction = "none"
         
         # Notify callbacks
         self._notify_idle_state_callbacks(True)
         
         log.info(f"idle_mode_active profile={self.current_profile.name if self.current_profile else 'none'}")
     
-    def _exit_idle_mode(self):
-        """Exit idle mode and restore active state."""
-        if not self.is_idle:
+    def _interrupt_idle_mode(self):
+        """Interrupt idle mode or transition - no state restoration."""
+        was_idle = self.is_idle
+        was_transitioning = self.transition.is_transitioning
+        
+        if not was_idle and not was_transitioning:
             return
         
-        log.info("idle_mode_exit")
+        log.info(f"idle_mode_interrupt was_idle={was_idle} was_transitioning={was_transitioning}")
         
-        # Restore saved active state
-        if self.saved_active_state:
-            restored_params = []
-            for param, value in self.saved_active_state.items():
-                success = self.state.set(param, value, source='idle_restore')
-                if success:
-                    restored_params.append(param)
-            
-            log.info(f"idle_state_restored params={restored_params}")
-            self.saved_active_state = None
-        
+        # Simply stop the idle state and transitions - no restoration
         self.is_idle = False
+        self.transition.is_transitioning = False
+        self.transition.direction = "none"
         
         # Update interaction time to prevent immediate re-entry
         self.last_interaction_time = time.time()
         
-        # Notify callbacks
-        self._notify_idle_state_callbacks(False)
+        # Notify callbacks only if we were actually in idle mode
+        if was_idle:
+            self._notify_idle_state_callbacks(False)
         
-        log.info("idle_mode_inactive")
+        log.info("idle_mode_interrupted_no_restoration")
     
     def _notify_idle_state_callbacks(self, is_idle: bool):
         """Notify all idle state callbacks."""

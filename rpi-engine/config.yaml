@@ -37,13 +37,13 @@ mapping:
     "62": drift
 
 sequencer:
-  steps: 16
-  bpm: 95
+  steps: 32
+  bpm: 75
   swing: 0.12
   density: 0.85
   gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
-  step_pattern: syncopated
+  step_pattern: all_on # syncopated | four_on_the_floor | all_on
   direction_pattern: forward
 
 scales:
@@ -60,11 +60,11 @@ scales:
 mutation:
   interval_min_s: 30
   interval_max_s: 60
-  max_changes_per_cycle: 1
+  max_changes_per_cycle: 3
 
 idle:
   timeout_ms: 30000
-  ambient_profile: slow_fade
+  ambient_profile: meditative # slow_fade | meditative
   fade_in_ms: 4000
   fade_out_ms: 800
   smooth_bpm_transitions: true
