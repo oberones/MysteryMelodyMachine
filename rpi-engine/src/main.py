@@ -127,6 +127,7 @@ def main(argv: Optional[list[str]] = None):
     log.info(f"sequencer_bpm={cfg.sequencer.bpm}")
     log.info(f"sequencer_swing={cfg.sequencer.swing}")
     log.info(f"sequencer_density={cfg.sequencer.density}")
+    log.info(f"sequencer_root_note={cfg.sequencer.root_note}")
     log.info(f"sequencer_gate_length={cfg.sequencer.gate_length}")
     log.info(f"sequencer_quantize_scale_changes={cfg.sequencer.quantize_scale_changes}")
     
@@ -172,6 +173,7 @@ def main(argv: Optional[list[str]] = None):
         'swing': cfg.sequencer.swing,
         'density': cfg.sequencer.density,
         'sequence_length': cfg.sequencer.steps,
+        'root_note': cfg.sequencer.root_note,
         'gate_length': cfg.sequencer.gate_length,
         'smooth_idle_transitions': cfg.idle.smooth_bpm_transitions,
         'idle_transition_duration_s': cfg.idle.bpm_transition_duration_s,

@@ -113,6 +113,15 @@ class MutationEngine:
                 description="Note probability shift"
             ),
             
+            # Musical scale parameters
+            MutationRule(
+                parameter="root_note",
+                weight=1.0,
+                delta_range=(-2.0, 2.0),
+                delta_scale=1.0,
+                description="Root note shift"
+            ),
+            
             # Audio parameters
             MutationRule(
                 parameter="filter_cutoff",

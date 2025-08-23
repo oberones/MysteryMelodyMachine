@@ -48,6 +48,7 @@ class State:
             'note_probability': 0.9, # Probability of a note playing on an active step
             'sequence_length': 8,
             'scale_index': 0,  # Index into scales list
+            'root_note': 60,  # MIDI note number for scale root (C4)
             'chaos_lock': False,
             'drift': 0.0,
             'filter_cutoff': 64,
@@ -137,7 +138,7 @@ class State:
     def _validate_param(self, param: str, value: Any) -> Optional[Any]:
         """Validate and clamp parameter values."""
         if param == 'bpm':
-            return max(1.0, min(200.0, float(value)))
+            return max(60.0, min(200.0, float(value)))
         elif param == 'swing':
             return max(0.0, min(0.5, float(value)))
         elif param == 'density':
@@ -148,6 +149,8 @@ class State:
             return max(1, min(32, int(value)))
         elif param == 'scale_index':
             return max(0, int(value))  # Upper bound checked by sequencer
+        elif param == 'root_note':
+            return max(0, min(127, int(value)))  # Valid MIDI note range
         elif param in ('filter_cutoff', 'reverb_mix', 'master_volume'):
             return max(0, min(127, int(value)))
         elif param == 'drift':

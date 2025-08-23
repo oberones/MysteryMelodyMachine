@@ -188,8 +188,9 @@ Mutation Engine (Idle-Aware) → Parameter Changes
 ### Scale & Mapping
 | Parameter | Type | Range | Default | Description |
 |-----------|------|-------|---------|-------------|
-| `scale_index` | int | 0-N | 0 | Index into available scales list |
+| `scale_index` | int | 0-8 | 0 | Index into available scales list (see **Supported Scales** below) |
 | `root_note` | int | 0-127 | 60 | Root note for scale (MIDI note number) |
+| `quantize_scale_changes` | string | `bar`, `immediate` | `bar` | When to apply scale changes (bar boundary or immediately) |
 
 ### Phase 6: Idle Mode & Mutations 🌙
 | Parameter | Type | Range | Default | Description |
@@ -219,6 +220,12 @@ Use `sequencer.get_pattern_preset(preset_name)` to get predefined step patterns:
 
 *T=True (step active), F=False (step inactive)*
 
+**Usage**: 
+```python
+pattern = sequencer.get_pattern_preset('syncopated')
+sequencer.set_step_pattern(pattern)
+```
+
 ## Direction Patterns 🎯
 
 Use `sequencer.set_direction_pattern(pattern_name)` to control sequencer playback direction:
@@ -231,6 +238,14 @@ Use `sequencer.set_direction_pattern(pattern_name)` to control sequencer playbac
 | `random` | Random step selection | Each step chooses randomly from all other steps |
 
 **Default**: `forward` (maintains backward compatibility)
+
+**Usage**: 
+```python
+sequencer.set_direction_pattern('ping_pong')
+# Or validate first
+direction = sequencer.get_direction_preset('backward')
+sequencer.set_direction_pattern(direction)
+```
 
 ## Probability Presets 🎲
 
@@ -247,6 +262,12 @@ Use `sequencer.get_probability_preset(preset_name, length)` to get predefined pr
 | `random_low` | Random values in low range | `[0.2-0.6 random values]` |
 | `random_high` | Random values in high range | `[0.6-1.0 random values]` |
 
+**Usage**: 
+```python
+probs = sequencer.get_probability_preset('crescendo', length=8)
+sequencer.set_step_probabilities(probs)
+```
+
 ## Idle Profiles 🌙
 
 Available ambient profiles for idle mode (configured via `idle.ambient_profile`):
@@ -262,6 +283,45 @@ Available ambient profiles for idle mode (configured via `idle.ambient_profile`)
 - Any MIDI interaction immediately exits idle mode and restores previous settings
 - Only parameters defined in the idle profile are changed/restored
 - Mutations are only active during idle mode
+
+## Supported Scales 🎼
+
+The following scales are available in the system (use `scale_index` 0-8 to select):
+
+| Index | Scale Name | Intervals (Semitones) | Description |
+|-------|------------|----------------------|-------------|
+| 0 | `major` | [0, 2, 4, 5, 7, 9, 11] | Standard major scale (Ionian mode) |
+| 1 | `minor` | [0, 2, 3, 5, 7, 8, 10] | Natural minor scale (Aeolian mode) |
+| 2 | `pentatonic_major` | [0, 2, 4, 7, 9] | Major pentatonic scale (5-note) |
+| 3 | `pentatonic_minor` | [0, 3, 5, 7, 10] | Minor pentatonic scale (5-note) |
+| 4 | `mixolydian` | [0, 2, 4, 5, 7, 9, 10] | Mixolydian mode (dominant 7th flavor) |
+| 5 | `blues` | [0, 3, 5, 6, 7, 10] | Blues scale (6-note) |
+| 6 | `dorian` | [0, 2, 3, 5, 7, 9, 10] | Dorian mode (minor with raised 6th) |
+| 7 | `locrian` | [0, 1, 3, 5, 6, 8, 10] | Locrian mode (diminished flavor) |
+| 8 | `chromatic` | [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] | All 12 semitones |
+
+## Supported CC Profiles 🎛️
+
+The following CC profiles are available for external synthesizers (configured via `midi.cc_profile.active_profile`):
+
+### Built-in Profiles
+| Profile ID | Name | Description | Parameter Count |
+|------------|------|-------------|-----------------|
+| `korg_nts1_mk2` | Korg NTS-1 MK2 | Complete parameter mapping for Korg NTS-1 MK2 digital synthesizer | 15+ parameters |
+| `generic_analog` | Generic Analog Synth | Standard analog subtractive synthesis parameters | 10+ parameters |
+| `fm_synth` | FM Synthesizer | Operator-based FM synthesis with 2 operators | 8+ parameters |
+| `waldorf_streichfett` | Waldorf Streichfett | Dual engine string synthesizer with string, solo, and effects sections | 15+ parameters |
+
+### Custom Profiles
+You can also define custom CC profiles in `config.yaml` under the `cc_profiles` section with your own parameter mappings.
+
+### CC Parameter Curve Types
+| Curve Type | Description | Best For |
+|------------|-------------|----------|
+| `linear` | Direct 0-1 to CC value mapping | Most parameters |
+| `exponential` | Smoother control at low values | Filters, envelopes |
+| `logarithmic` | More precision at high values | Frequencies |
+| `stepped` | Discrete values | Waveform selection, modes |
 
 ## Configuration Example (config.yaml)
 
@@ -365,5 +425,38 @@ for event in history:
 - LED event emission for interaction feedback and idle state visualization.
 - Enhanced integration with Teensy firmware for visual feedback.
 - Additional ambient profiles and customization options.
+
+## Configuration Reference 📖
+
+### Complete Configuration Value Lists
+
+For easy reference, here are all supported values for key configuration options:
+
+**Scales** (`scale_index` 0-8):
+- `major`, `minor`, `pentatonic_major`, `pentatonic_minor`, `mixolydian`, `blues`, `dorian`, `locrian`, `chromatic`
+
+**Ambient Profiles** (`idle.ambient_profile`):
+- `slow_fade`, `minimal`, `meditative`
+
+**Direction Patterns** (`direction_pattern`):
+- `forward`, `backward`, `ping_pong`, `random`
+
+**Step Pattern Presets** (use `sequencer.get_pattern_preset(name)`):
+- `four_on_floor`, `offbeat`, `every_other`, `syncopated`, `dense`, `sparse`, `all_on`, `all_off`
+
+**Probability Presets** (use `sequencer.get_probability_preset(name, length)`):
+- `uniform`, `crescendo`, `diminuendo`, `peaks`, `valleys`, `alternating`, `random_low`, `random_high`
+
+**Quantize Scale Changes** (`quantize_scale_changes`):
+- `bar` (apply at bar boundaries), `immediate` (apply immediately)
+
+**CC Profiles** (`midi.cc_profile.active_profile`):
+- `korg_nts1_mk2`, `generic_analog`, `fm_synth`, `waldorf_streichfett`, plus any custom profiles defined in config
+
+**CC Curve Types** (for custom profiles):
+- `linear`, `exponential`, `logarithmic`, `stepped`
+
+**Logging Levels** (`logging.level`):
+- `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 
 License: Apache-2.0

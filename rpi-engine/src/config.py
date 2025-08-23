@@ -28,6 +28,7 @@ class SequencerConfig(BaseModel):
     bpm: float = 110.0
     swing: float = 0.12
     density: float = 0.85
+    root_note: int = Field(60, ge=0, le=127)  # MIDI note number for scale root (C4 = 60)
     gate_length: float = Field(0.8, ge=0.1, le=1.0)  # Note duration as fraction of step duration
     quantize_scale_changes: str = Field("bar", pattern=r"^(immediate|bar)$")
     # Phase 5.5 features

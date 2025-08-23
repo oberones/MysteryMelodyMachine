@@ -41,7 +41,8 @@ sequencer:
   bpm: 75
   swing: 0.12
   density: 0.85
-  gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
+  root_note: 42  # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
+  gate_length: .1         # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
   step_pattern: all_on # syncopated | four_on_the_floor | all_on
   direction_pattern: forward

@@ -20,6 +20,7 @@ def test_state_initialization(state):
     assert state.get('density') == 0.85
     assert state.get('sequence_length') == 8
     assert state.get('scale_index') == 0
+    assert state.get('root_note') == 60
     assert state.get('chaos_lock') is False
     assert state.get('idle_mode') is False
     assert state.get('step_position') == 0
@@ -52,6 +53,12 @@ def test_parameter_validation():
     assert state.get('sequence_length') == 1
     assert state.set('sequence_length', 50) is True
     assert state.get('sequence_length') == 32
+    
+    # Root note validation
+    assert state.set('root_note', -10) is True  # Below min
+    assert state.get('root_note') == 0
+    assert state.set('root_note', 150) is True  # Above max
+    assert state.get('root_note') == 127
 
 
 def test_change_listeners():
