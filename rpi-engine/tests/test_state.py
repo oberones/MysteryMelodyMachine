@@ -31,8 +31,8 @@ def test_parameter_validation():
     state = State()
     
     # BPM validation
-    assert state.set('bpm', 50.0) is True  # Below min, should clamp
-    assert state.get('bpm') == 60.0
+    assert state.set('bpm', 0.5) is True  # Below min, should clamp
+    assert state.get('bpm') == 1.0
     assert state.set('bpm', 250.0) is True  # Above max, should clamp
     assert state.get('bpm') == 200.0
     

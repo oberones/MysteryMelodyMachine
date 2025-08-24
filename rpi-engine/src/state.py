@@ -138,7 +138,7 @@ class State:
     def _validate_param(self, param: str, value: Any) -> Optional[Any]:
         """Validate and clamp parameter values."""
         if param == 'bpm':
-            return max(60.0, min(200.0, float(value)))
+            return max(1.0, min(200.0, float(value)))
         elif param == 'swing':
             return max(0.0, min(0.5, float(value)))
         elif param == 'density':

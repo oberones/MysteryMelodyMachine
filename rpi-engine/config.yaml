@@ -38,14 +38,14 @@ mapping:
 
 sequencer:
   steps: 32
-  bpm: 75
+  bpm: 25
   swing: 0.12
   density: 0.85
   root_note: 42  # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
-  gate_length: .1         # Note duration as fraction of step duration (0.1-1.0)
+  gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
   step_pattern: all_on # syncopated | four_on_the_floor | all_on
-  direction_pattern: forward
+  direction_pattern: random
 
 scales:
   - major
