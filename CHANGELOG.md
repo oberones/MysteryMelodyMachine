@@ -1,3 +1,18 @@
+## v0.5.0 (2025-08-25)
+
+### Feat
+
+- add configurable and mutable root note
+- add a smoother BPM transition to idle mode
+- make gate length variable and based on probability
+- improve external synth support with clock and cc profile support
+- add idle mode
+
+### Fix
+
+- lower minimum bpm to 1 in the validation method
+- smooth out idle mode transitions
+
 ## v0.4.0 (2025-08-20)
 
 ### Feat
