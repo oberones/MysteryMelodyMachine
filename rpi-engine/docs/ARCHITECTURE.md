@@ -32,9 +32,9 @@ The Mystery Music Engine is a real-time generative music system designed to rece
 │  │                    State Container                                  ││
 │  │                                                                     ││
 │  │ - Observable parameter store                                        ││
-│  │ - Validation & clamping                                            ││
+│  │ - Validation & clamping                                             ││
 │  │ - Change notification system                                        ││
-│  │ - Thread-safe access                                               ││
+│  │ - Thread-safe access                                                ││
 │  └─────────────────────────┬───────────────────────────────────────────┘│
 │                            │                                            │
 │    ┌───────────────────────▼──────────┐    ┌──────────────────────────┐ │
@@ -78,10 +78,10 @@ The Mystery Music Engine is a real-time generative music system designed to rece
     ┌─────────────────────────────────┐
     │      External Hardware          │
     │                                 │
-    │ - Korg NTS1 MK2                │
-    │ - Waldorf Streichfett          │
-    │ - Generic analog synths        │
-    │ - Custom CC profiles           │
+    │ - Korg NTS1 MK2                 │
+    │ - Waldorf Streichfett           │
+    │ - Generic analog synths         │
+    │ - Custom CC profiles            │
     └─────────────────────────────────┘
 ```
 
