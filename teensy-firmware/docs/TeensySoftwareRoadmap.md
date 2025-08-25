@@ -70,10 +70,11 @@ Stretch Role: Light-weight rule hooks (ONLY if round‑trip to Pi causes unaccep
 
 ---
 ## 4. Development Phases & Milestones
+
 ### Phase 0: Bootstrap
-- [ ] Create `teensy/firmware/` structure
-- [ ] Basic blink / Serial Hello
-- [ ] Confirm USB Type = MIDI enumerates
+- [X] Create `teensy/firmware/` structure
+- [X] Basic blink / Serial Hello
+- [X] Confirm USB Type = MIDI enumerates
 
 ### Phase 1: Raw Input + MIDI
 - [ ] Define pin & mapping tables

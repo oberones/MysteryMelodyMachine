@@ -13,10 +13,10 @@ constexpr uint8_t BUTTON_PINS[] = {
 constexpr uint8_t BUTTON_COUNT = sizeof(BUTTON_PINS) / sizeof(BUTTON_PINS[0]);
 
 // Joystick directions (4 directions)
-constexpr uint8_t JOY_UP_PIN = 12;
-constexpr uint8_t JOY_DOWN_PIN = 13;
-constexpr uint8_t JOY_LEFT_PIN = 14;
-constexpr uint8_t JOY_RIGHT_PIN = 15;
+constexpr uint8_t JOYSTICK_UP = 12;
+constexpr uint8_t JOYSTICK_DOWN = 13;
+constexpr uint8_t JOYSTICK_LEFT = 14;
+constexpr uint8_t JOYSTICK_RIGHT = 15;
 
 // Switches (3 total)
 constexpr uint8_t SWITCH_PINS[] = {

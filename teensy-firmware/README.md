@@ -69,48 +69,54 @@ teensy-firmware/
 └── README.md                 # This file
 ```
 
-## Phase 0 Implementation Status
+## Phase 1 Implementation Status
 
-- [x] Create `teensy/firmware/` structure
-- [x] Basic blink / Serial Hello
-- [x] Confirm USB Type = MIDI enumerates
+- [x] Implement InputScanner class for all hardware inputs
+- [x] Implement MidiOut class with conditional compilation  
+- [x] Implement InputMidiMapper for input-to-MIDI conversion
+- [x] Full hardware scanning: 10 buttons, 6 pots, 4-direction joystick, 3 switches
+- [x] Raw input polling without debouncing (Phase 1 spec)
+- [x] MIDI output for all input types with proper mappings
 
-### Current Features (Phase 0):
-- Built-in LED heartbeat blink (1 Hz)
-- Serial debug output at 115200 baud
-- Basic MIDI note on/off for button 0 (test functionality)
-- Portal LED initialization and startup sequence
-- Simple breathing portal animation
-- MIDI USB configuration
+### Current Features (Phase 1):
+- **Full Input System**: All 19 physical inputs scanned at 1kHz
+- **Button MIDI**: 10 buttons → MIDI Notes 60-69 (C4-A4) with Note On/Off
+- **Potentiometer MIDI**: 6 pots → MIDI CC 1-6 with raw 0-127 mapping
+- **Joystick MIDI**: 4 directions → MIDI CC 10-13 (edge triggered)
+- **Switch MIDI**: 3 switches → MIDI CC 20-22 (state change triggered)
+- **Dual Build System**: Production (MIDI) vs Debug (Serial) environments
+- **Portal Animation**: Maintained from Phase 0 for visual feedback
+- **Serial Debugging**: Comprehensive debug output in debug mode
 
-## Testing Phase 0
+## Testing Phase 1
 
 1. **Upload the firmware** to your Teensy 4.1:
    ```bash
-   # For production (MIDI mode)
+   # For production (MIDI mode) - full input scanning with MIDI output
    pio run --target upload
    
-   # For debugging (Serial mode, no MIDI)
+   # For debugging (Serial mode) - input scanning with serial debug output
    pio run -e teensy41-debug --target upload
    ```
 
-2. **Monitor serial output**:
+2. **Monitor debug output** (debug mode only):
    ```bash
-   # For debug version only
    pio device monitor -e teensy41-debug
    ```
 
-3. **Test MIDI enumeration**: 
-   - Production mode: Device appears as "Teensy MIDI" in your DAW/MIDI software
-   - Debug mode: No MIDI functionality, serial monitoring available
+3. **Test all inputs**:
+   - **Buttons (Pins 2-11)**: Press any button → sends MIDI Note On/Off (Notes 60-69)
+   - **Potentiometers (A0-A3,A6-A7)**: Turn any pot → sends MIDI CC 1-6 (0-127 range)
+   - **Joystick (Pins 12-15)**: Move joystick → sends MIDI CC 10-13 (edge triggered)
+   - **Switches (Pins 16-18)**: Toggle switches → sends MIDI CC 20-22 (on/off)
 
-4. **Test basic input**: Press button connected to pin 2
-   - Production mode: Sends MIDI Note 60 (C4)
-   - Debug mode: Shows button press in serial output
+4. **MIDI Device Testing**:
+   - Production mode: Device appears as "Teensy MIDI" in DAW
+   - Debug mode: MIDI messages shown in serial output as "MIDI NoteOn Ch:1 P1:60 P2:100"
 
-5. **Observe portal**: LEDs should show startup sequence, then gentle blue breathing
+5. **Portal Animation**: LEDs show startup sequence, then breathing animation at 60Hz
 
-6. **Verify heartbeat**: Built-in LED should blink every second
+6. **Performance**: Built-in LED blinks every second, confirming 1kHz main loop
 
 ## Development Workflow
 
@@ -131,28 +137,30 @@ pio device monitor -e teensy41-debug         # Monitor serial output
 - **Debug**: Serial monitoring, no MIDI functionality
 - Use Arduino IDE Serial Monitor for MIDI mode debugging if needed
 
-## Expected Serial Output
+## Expected Serial Output (Debug Mode)
 
 ```
 === Mystery Melody Machine Teensy Firmware ===
-Phase 0: Bootstrap
-Firmware compiled: Aug 25 2025 14:30:45
-USB Type: MIDI
-Button 0: Pin 2 configured
-Button 1: Pin 3 configured
-...
-Joystick pins configured
-Switch 0: Pin 16 configured
-...
+Phase 1: Raw Input + MIDI
+Firmware compiled: Jan 15 2025 14:30:45
+USB Type: Serial (Debug Mode)
+Initializing input scanner...
+Initializing MIDI output...
+Input mapping: 10 buttons, 6 pots, 3 switches, 4-way joystick
 FastLED initialized: 60 LEDs on pin 1
 Testing MIDI enumeration...
-MIDI test note sent (C4)
+MIDI not available - debug mode active
 Starting portal initialization sequence...
 Portal startup sequence complete
 === Setup Complete ===
 Main loop target: 1000 Hz
 Portal target: 60 Hz
 Entering main loop...
+MIDI NoteOn Ch:1 P1:60 P2:100    # Button 0 pressed
+MIDI NoteOff Ch:1 P1:60 P2:0     # Button 0 released
+MIDI CC Ch:1 P1:1 P2:64          # Pot 0 moved to center
+MIDI CC Ch:1 P1:10 P2:127        # Joystick up pressed
+MIDI CC Ch:1 P1:20 P2:127        # Switch 0 turned on
 ```
 
 ## Pin Assignments
@@ -169,16 +177,28 @@ Entering main loop...
 - **LED Data**: Pin 1 (WS2812B data)
 - **Built-in LED**: Pin 13 (heartbeat)
 
-## MIDI Mapping (Phase 0 Test)
+## MIDI Mapping (Phase 1 Complete)
 
-- **Button 0**: MIDI Note 60 (C4) on Channel 1, Velocity 100
+### Buttons (Digital Input, Active Low):
+- **Button 0-9 (Pins 2-11)**: MIDI Notes 60-69 (C4-A4) on Channel 1, Velocity 100
+
+### Potentiometers (Analog Input):
+- **Pot 0-5 (Pins A0-A3,A6-A7)**: MIDI CC 1-6 on Channel 1, Value 0-127
+
+### Joystick (Digital Input, Edge Triggered):
+- **Up (Pin 12)**: MIDI CC 10 = 127 on press
+- **Down (Pin 13)**: MIDI CC 11 = 127 on press  
+- **Left (Pin 14)**: MIDI CC 12 = 127 on press
+- **Right (Pin 15)**: MIDI CC 13 = 127 on press
+
+### Switches (Digital Input, State Change):
+- **Switch 0-2 (Pins 16-18)**: MIDI CC 20-22 on Channel 1, Value 0 (off) or 127 (on)
 
 ## Next Phases
 
-- **Phase 1**: Implement full input scanning with all buttons, pots, joystick, switches
-- **Phase 2**: Add debouncing and analog smoothing
-- **Phase 3**: Integrate complete portal animation system
-- **Phase 4**: Performance optimization and hardening
+- **Phase 2**: Add debouncing, analog smoothing, and input filtering for production quality
+- **Phase 3**: Integrate complete portal animation system with MIDI-reactive effects
+- **Phase 4**: Performance optimization and hardening for live performance use
 
 ## Troubleshooting
 
@@ -189,7 +209,7 @@ Entering main loop...
 
 ### No MIDI device appears (debug mode):
 1. This is normal - debug mode has no MIDI functionality
-2. Use production mode for MIDI: `pio run --target upload`
+2. Use production mode for MIDI: `pio run -e teensy41 --target upload`
 3. Verify device appears as "Teensy MIDI" in your DAW
 
 ### No MIDI device appears (production mode):

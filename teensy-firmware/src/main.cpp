@@ -2,10 +2,12 @@
 #include <FastLED.h>
 #include "pins.h"
 #include "config.h"
+#include "input_scanner.h"
+#include "midi_out.h"
+#include "input_midi_mapper.h"
 
 // Forward declarations
 void portalStartupSequence();
-void scanInputs();
 void updatePortal();
 
 // ===== GLOBAL VARIABLES =====
@@ -15,6 +17,11 @@ elapsedMicros portalFrameTimer;
 elapsedMillis blinkTimer;
 bool builtinLedState = false;
 
+// Phase 1: Input system modules
+InputScanner inputScanner;
+MidiOut midiOut;
+InputMidiMapper inputMapper(inputScanner, midiOut);
+
 // ===== SETUP FUNCTION =====
 void setup() {
     // Initialize Serial for debugging
@@ -22,32 +29,27 @@ void setup() {
     delay(1000);  // Give time for serial to initialize
     
     Serial.println("=== Mystery Melody Machine Teensy Firmware ===");
-    Serial.println("Phase 0: Bootstrap");
+    Serial.println("Phase 1: Raw Input + MIDI");
     Serial.printf("Firmware compiled: %s %s\n", __DATE__, __TIME__);
+    #ifdef USB_MIDI
     Serial.println("USB Type: MIDI");
+    #else
+    Serial.println("USB Type: Serial (Debug Mode)");
+    #endif
     
     // Initialize built-in LED for blink test
     pinMode(BUILTIN_LED_PIN, OUTPUT);
     digitalWrite(BUILTIN_LED_PIN, LOW);
     
-    // Initialize all button pins as inputs with pullups
-    for (int i = 0; i < BUTTON_COUNT; i++) {
-        pinMode(BUTTON_PINS[i], INPUT_PULLUP);
-        Serial.printf("Button %d: Pin %d configured\n", i, BUTTON_PINS[i]);
-    }
+    // Initialize Phase 1 input system
+    Serial.println("Initializing input scanner...");
+    inputScanner.begin();
     
-    // Initialize joystick pins
-    pinMode(JOY_UP_PIN, INPUT_PULLUP);
-    pinMode(JOY_DOWN_PIN, INPUT_PULLUP);
-    pinMode(JOY_LEFT_PIN, INPUT_PULLUP);
-    pinMode(JOY_RIGHT_PIN, INPUT_PULLUP);
-    Serial.println("Joystick pins configured");
+    Serial.println("Initializing MIDI output...");
+    midiOut.begin();
     
-    // Initialize switch pins
-    for (int i = 0; i < SWITCH_COUNT; i++) {
-        pinMode(SWITCH_PINS[i], INPUT_PULLUP);
-        Serial.printf("Switch %d: Pin %d configured\n", i, SWITCH_PINS[i]);
-    }
+    Serial.printf("Input mapping: %d buttons, %d pots, %d switches, 4-way joystick\n", 
+                  BUTTON_COUNT, POT_COUNT, SWITCH_COUNT);
     
     // Initialize FastLED for portal
     FastLED.addLeds<WS2812B, LED_DATA_PIN, GRB>(leds, LED_COUNT);
@@ -59,12 +61,12 @@ void setup() {
     // Test MIDI functionality (only if MIDI is available)
     Serial.println("Testing MIDI enumeration...");
     #ifdef USB_MIDI
-    usbMIDI.sendNoteOn(60, 64, MIDI_CHANNEL);  // Test note
+    midiOut.sendNoteOn(60, 64, MIDI_CHANNEL);  // Test note
     delay(100);
-    usbMIDI.sendNoteOff(60, 0, MIDI_CHANNEL);
+    midiOut.sendNoteOff(60, 0, MIDI_CHANNEL);
     Serial.println("MIDI test note sent (C4)");
     #else
-    Serial.println("MIDI not available in this USB mode");
+    Serial.println("MIDI not available - debug mode active");
     #endif
     
     // Portal startup sequence
@@ -113,32 +115,9 @@ void portalStartupSequence() {
     Serial.println("Portal startup sequence complete");
 }
 
-// ===== BASIC INPUT SCANNING =====
-void scanInputs() {
-    // This is a placeholder for Phase 1
-    // For now, just scan one button for basic MIDI test
-    static bool lastButton0State = true;  // pullup = true when not pressed
-    
-    bool currentButton0State = digitalRead(BUTTON_PINS[0]);
-    if (currentButton0State != lastButton0State) {
-        if (!currentButton0State) {  // Button pressed (pullup inverted)
-            #ifdef USB_MIDI
-            usbMIDI.sendNoteOn(BUTTON_NOTES[0], MIDI_VELOCITY, MIDI_CHANNEL);
-            #endif
-            Serial.printf("Button 0 pressed - Note On: %d\n", BUTTON_NOTES[0]);
-        } else {  // Button released
-            #ifdef USB_MIDI
-            usbMIDI.sendNoteOff(BUTTON_NOTES[0], 0, MIDI_CHANNEL);
-            #endif
-            Serial.printf("Button 0 released - Note Off: %d\n", BUTTON_NOTES[0]);
-        }
-        lastButton0State = currentButton0State;
-    }
-}
-
 // ===== BASIC PORTAL ANIMATION =====
 void updatePortal() {
-    // Simple breathing effect for Phase 0
+    // Simple breathing effect for Phase 1
     static uint32_t animationPhase = 0;
     animationPhase += 2;
     
@@ -158,8 +137,9 @@ void loop() {
     if (mainLoopTimer >= (1000000 / SCAN_HZ)) {
         mainLoopTimer -= (1000000 / SCAN_HZ);
         
-        // Basic input scanning
-        scanInputs();
+        // Phase 1: Full input scanning and MIDI output
+        inputScanner.scan();
+        inputMapper.processInputs();
         
         // Handle any incoming MIDI (for future portal cues)
         #ifdef USB_MIDI
@@ -183,7 +163,7 @@ void loop() {
         
         #if DEBUG
         // Simple memory check for Teensy 4.1
-        Serial.printf("Heartbeat - System running normally\n");
+        Serial.printf("Heartbeat - Phase 1 system running\n");
         #endif
     }
 }
