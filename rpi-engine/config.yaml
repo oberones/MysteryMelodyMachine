@@ -4,8 +4,8 @@ logging:
 midi:
   input_port: "RK006 IN_ALL"
   output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
-  input_channel: 10
-  output_channel: 1
+  input_channel: 11
+  output_channel: 10
 
   clock:
     enabled: false            # Enable MIDI clock output to sync external devices
@@ -38,10 +38,10 @@ mapping:
 
 sequencer:
   steps: 32
-  bpm: 25
+  bpm: 15
   swing: 0.12
   density: 0.85
-  root_note: 42  # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
+  root_note: 55  # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
   gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
   step_pattern: all_on # syncopated | four_on_the_floor | all_on
