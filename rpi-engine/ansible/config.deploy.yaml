@@ -2,8 +2,8 @@ logging:
   level: INFO
 
 midi:
-  input_port: "f_midi"  # Using f_midi gadget for input since RK006 has no input ports
-  output_port: "RK006 OUT_ALL"  # RK006 output port is available
+  input_port: "Teensy MIDI:Teensy MIDI MIDI 1 28:0"
+  output_port: "RK006:RK006 OUT_ALL 16:0"
   input_channel: 11
   output_channel: 1
 
@@ -13,9 +13,9 @@ midi:
     send_song_position: true  # Send song position pointer messages
 
   cc_profile:
-    active_profile: "waldorf_streichfett" # Active CC profile (korg_nts1_mk2, waldorf_streichfett, generic_analog, fm_synth)
-    parameter_smoothing: true             # Enable parameter smoothing for CC messages
-    cc_throttle_ms: 10                    # Minimum milliseconds between CC messages (latency optimization)
+    active_profile: "korg_nts1_mk2" # Active CC profile (korg_nts1_mk2, waldorf_streichfett, generic_analog, fm_synth)
+    parameter_smoothing: true       # Enable parameter smoothing for CC messages
+    cc_throttle_ms: 10              # Minimum milliseconds between CC messages (latency optimization)
 
 mapping:
   buttons:
@@ -41,10 +41,10 @@ sequencer:
   bpm: 15
   swing: 0.12
   density: 0.85
-  root_note: 55  # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
-  gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
+  root_note: 55                # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
+  gate_length: 1               # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
-  step_pattern: all_on # syncopated | four_on_the_floor | all_on
+  step_pattern: all_on         # syncopated | four_on_the_floor | all_on
   direction_pattern: random
 
 scales:
