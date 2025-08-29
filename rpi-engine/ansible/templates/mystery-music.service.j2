@@ -5,12 +5,12 @@ Wants=network.target
 
 [Service]
 Type=simple
-User={{ project_user }}
+User={{ pi_user }}
 Group=audio
-WorkingDirectory={{ project_dir }}
+WorkingDirectory={{ rpi_dir }}
 Environment=PATH={{ venv_dir }}/bin
 ExecStartPre=/bin/bash -c 'modprobe snd-seq || true'
-ExecStart={{ project_dir }}/start-mystery-music.sh
+ExecStart={{ rpi_dir }}/start-mystery-music.sh
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 KillSignal=SIGTERM
@@ -25,7 +25,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths={{ project_dir }} /var/log/mystery-music
+ReadWritePaths={{ rpi_dir }} /var/log/mystery-music
 SupplementaryGroups=audio dialout plugdev
 
 # Resource limits

@@ -12,9 +12,8 @@
   hosts: raspberry_pi
   become: yes
   vars:
-    pi_user: "{{ ansible_user | default('pi') }}"
-    pi_home: "/home/{{ pi_user }}"
-    pi_project: "/home/{{ pi_user }}/MysteryMelodyMachine"
+    pi_user: "{{ ansible_user | default('oberon') }}"
+    pi_project: "/opt/MysteryMelodyMachine"
     rpi_dir: "{{ pi_project }}/rpi-engine"
     venv_dir: "{{ rpi_dir }}/.venv"
     repo_url: "https://github.com/oberones/MysteryMelodyMachine.git"
@@ -84,14 +83,12 @@
         owner: "{{ pi_user }}"
         group: "{{ pi_user }}"
         mode: '0755'
-      become_user: "{{ pi_user }}"
       tags: project
 
     - name: Check if git repository exists
       stat:
         path: "{{ pi_project }}/.git"
       register: git_repo
-      become_user: "{{ pi_user }}"
       tags: project
 
     - name: Clone repository
@@ -137,7 +134,7 @@
 
     - name: Create config.yaml from template if it doesn't exist
       copy:
-        src: "{{ rpi_dir }}/ansible/config.deploy.yaml"
+        src: "config.deploy.yaml"
         dest: "{{ rpi_dir }}/config.production.yaml"
         owner: "{{ pi_user }}"
         group: "{{ pi_user }}"
@@ -187,7 +184,7 @@
               delaycompress
               notifempty
               copytruncate
-              su {{ project_user }} {{ project_user }}
+              su {{ pi_user }} {{ pi_user }}
           }
         owner: root
         group: root
@@ -209,7 +206,6 @@
         owner: "{{ pi_user }}"
         group: "{{ pi_user }}"
         mode: '0755'
-      become_user: "{{ pi_user }}"
       tags: monitoring
 
     - name: Set up health check cron job

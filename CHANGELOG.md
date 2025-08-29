@@ -1,3 +1,11 @@
+## v0.6.0 (2025-08-29)
+
+### Feat
+
+- add ansible playbook for configuring rpi
+- add MIDI input and output support (phase 1)
+- add initial scaffolding for the teensy firmware (Phase 0)
+
 ## v0.5.0 (2025-08-25)
 
 ### Feat

@@ -38,7 +38,28 @@
 
 // ===== DEBUG CONFIGURATION =====
 #ifndef DEBUG
-#define DEBUG 0
+#define DEBUG 1  // Phase 2: Enable debug output by default
+#endif
+
+// ===== PHASE 2 ROBUST INPUT CONFIGURATION =====
+// EMA smoothing alpha (0-255, where 64 ≈ 0.25)
+#ifndef POT_SMOOTHING_ALPHA
+#define POT_SMOOTHING_ALPHA 64
+#endif
+
+// Minimum stable time for digital state changes
+#ifndef SWITCH_DEBOUNCE_MS
+#define SWITCH_DEBOUNCE_MS DEBOUNCE_MS
+#endif
+
+// Large change threshold that overrides rate limiting
+#ifndef POT_LARGE_CHANGE_THRESHOLD
+#define POT_LARGE_CHANGE_THRESHOLD 8
+#endif
+
+// Stable time before sending pot change (change compression)
+#ifndef POT_STABLE_TIME_MS
+#define POT_STABLE_TIME_MS 4
 #endif
 
 // ===== MIDI CONFIGURATION =====
