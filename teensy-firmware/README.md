@@ -184,7 +184,7 @@ Heartbeat - ACTIVE (last activity 1240ms ago)    # Every second
 
 ### Digital Inputs (with pullups):
 - **Buttons**: Pins 2-11 (10 buttons)
-- **Joystick**: Pins 12-14, 19 (Up/Down/Left/Right) - Pin 19 used for RIGHT to avoid A1 conflict
+- **Joystick**: Pins 12, 20, 14, 19 (Up/Down/Left/Right) - Reassigned to avoid conflicts
 - **Switches**: Pins 16-18 (3 switches)
 
 ### Analog Inputs:
@@ -204,7 +204,7 @@ Heartbeat - ACTIVE (last activity 1240ms ago)    # Every second
 
 ### Joystick (Digital Input, Edge Triggered):
 - **Up (Pin 12)**: MIDI CC 10 = 127 on press
-- **Down (Pin 13)**: MIDI CC 11 = 127 on press  
+- **Down (Pin 20)**: MIDI CC 11 = 127 on press  
 - **Left (Pin 14)**: MIDI CC 12 = 127 on press
 - **Right (Pin 19)**: MIDI CC 13 = 127 on press
 

@@ -14,8 +14,9 @@ constexpr uint8_t BUTTON_COUNT = sizeof(BUTTON_PINS) / sizeof(BUTTON_PINS[0]);
 
 // Joystick directions (4 directions)
 // Note: Moved RIGHT from pin 15 to 19 to avoid conflict with A1 analog input
+// Note: Moved DOWN from pin 13 to 20 to avoid conflict with built-in LED
 constexpr uint8_t JOYSTICK_UP = 12;
-constexpr uint8_t JOYSTICK_DOWN = 13;
+constexpr uint8_t JOYSTICK_DOWN = 20;
 constexpr uint8_t JOYSTICK_LEFT = 14;
 constexpr uint8_t JOYSTICK_RIGHT = 19;
 
