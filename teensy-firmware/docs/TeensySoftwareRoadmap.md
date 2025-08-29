@@ -83,10 +83,10 @@ Stretch Role: Light-weight rule hooks (ONLY if round‑trip to Pi causes unaccep
 - [X] Poll joystick & switches → send CC (edge triggered naive)
 
 ### Phase 2: Robust Input Layer
-- [ ] Implement time-based debounce (per control configurable)
-- [ ] Add analog smoothing: EMA (α ≈ 0.25) + deadband (Δ≥2 -> send)
-- [ ] Implement change compression (only send CC after stable for 4 ms OR threshold exceeded)
-- [ ] Unit-like serial test mode: dump values each second
+- [X] Implement time-based debounce (per control configurable)
+- [X] Add analog smoothing: EMA (α ≈ 0.25) + deadband (Δ≥2 -> send)
+- [X] Implement change compression (only send CC after stable for 4 ms OR threshold exceeded)
+- [X] Unit-like serial test mode: dump values each second
 
 ### Phase 3: Portal Animation Integration
 - [ ] Integrate pre-existing infinity portal code from `/Users/oberon/Projects/coding/arduino/uno/arduino-infinity-portal`

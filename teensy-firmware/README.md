@@ -94,7 +94,7 @@ teensy-firmware/
 1. **Upload the firmware** to your Teensy 4.1:
    ```bash
    # For production (MIDI mode) - robust input processing with MIDI output
-   pio run --target upload
+   pio run -e teensy41 --target upload
    
    # For debugging (Serial mode) - includes test mode with value dumps
    pio run -e teensy41-debug --target upload
