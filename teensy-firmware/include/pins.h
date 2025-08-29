@@ -13,10 +13,11 @@ constexpr uint8_t BUTTON_PINS[] = {
 constexpr uint8_t BUTTON_COUNT = sizeof(BUTTON_PINS) / sizeof(BUTTON_PINS[0]);
 
 // Joystick directions (4 directions)
+// Note: Moved RIGHT from pin 15 to 19 to avoid conflict with A1 analog input
 constexpr uint8_t JOYSTICK_UP = 12;
 constexpr uint8_t JOYSTICK_DOWN = 13;
 constexpr uint8_t JOYSTICK_LEFT = 14;
-constexpr uint8_t JOYSTICK_RIGHT = 15;
+constexpr uint8_t JOYSTICK_RIGHT = 19;
 
 // Switches (3 total)
 constexpr uint8_t SWITCH_PINS[] = {
@@ -25,9 +26,10 @@ constexpr uint8_t SWITCH_PINS[] = {
 constexpr uint8_t SWITCH_COUNT = sizeof(SWITCH_PINS) / sizeof(SWITCH_PINS[0]);
 
 // ===== ANALOG INPUT PINS =====
-// Potentiometers (6 total)
+// Potentiometers - only enable the ones actually connected
+// Note: A4/A5 reserved for I2C, A6/A7 currently unconnected
 constexpr uint8_t POT_PINS[] = {
-    A0, A1, A2, A3, A6, A7  // A4/A5 reserved for I2C if needed
+    A0, A1, A2, A3  // Only first 4 pots to avoid noise from floating A6/A7
 };
 constexpr uint8_t POT_COUNT = sizeof(POT_PINS) / sizeof(POT_PINS[0]);
 

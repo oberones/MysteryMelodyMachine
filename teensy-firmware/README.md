@@ -184,11 +184,11 @@ Heartbeat - ACTIVE (last activity 1240ms ago)    # Every second
 
 ### Digital Inputs (with pullups):
 - **Buttons**: Pins 2-11 (10 buttons)
-- **Joystick**: Pins 12-15 (Up/Down/Left/Right)
+- **Joystick**: Pins 12-14, 19 (Up/Down/Left/Right) - Pin 19 used for RIGHT to avoid A1 conflict
 - **Switches**: Pins 16-18 (3 switches)
 
 ### Analog Inputs:
-- **Potentiometers**: Pins A0-A3, A6-A7 (6 pots)
+- **Potentiometers**: Pins A0-A3 (4 pots) - A4/A5 reserved for I2C, A6/A7 disabled to avoid noise
 
 ### Outputs:
 - **LED Data**: Pin 1 (WS2812B data)
@@ -200,13 +200,13 @@ Heartbeat - ACTIVE (last activity 1240ms ago)    # Every second
 - **Button 0-9 (Pins 2-11)**: MIDI Notes 60-69 (C4-A4) on Channel 1, Velocity 100
 
 ### Potentiometers (Analog Input):
-- **Pot 0-5 (Pins A0-A3,A6-A7)**: MIDI CC 1-6 on Channel 1, Value 0-127
+- **Pot 0-3 (Pins A0-A3)**: MIDI CC 1-4 on Channel 1, Value 0-127
 
 ### Joystick (Digital Input, Edge Triggered):
 - **Up (Pin 12)**: MIDI CC 10 = 127 on press
 - **Down (Pin 13)**: MIDI CC 11 = 127 on press  
 - **Left (Pin 14)**: MIDI CC 12 = 127 on press
-- **Right (Pin 15)**: MIDI CC 13 = 127 on press
+- **Right (Pin 19)**: MIDI CC 13 = 127 on press
 
 ### Switches (Digital Input, State Change):
 - **Switch 0-2 (Pins 16-18)**: MIDI CC 20-22 on Channel 1, Value 0 (off) or 127 (on)
