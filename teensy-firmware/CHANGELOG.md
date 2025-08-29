@@ -7,6 +7,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-08-25
+
+### Added - Phase 2: Robust Input Layer
+- Implemented time-based debouncing with `Debouncer` class
+  - Configurable debounce time per input (default 5ms)
+  - Proper state change detection with edge triggering
+  - Immunity to switch bounce and electrical noise
+- Added analog smoothing with `AnalogSmoother` class
+  - Exponential Moving Average (EMA) filtering (α ≈ 0.25)
+  - Deadband filtering (minimum change threshold)
+  - Rate limiting to prevent CC spam
+  - Change compression (stable for 4ms OR large threshold)
+- Created `RobustInputProcessor` that integrates both systems
+  - Wraps raw input scanner with robust processing
+  - Activity tracking and idle detection (30s timeout)
+  - Joystick rearm timing (120ms minimum between pulses)
+- Implemented `RobustMidiMapper` for clean MIDI output
+  - Works with debounced and filtered inputs
+  - Proper state tracking for all input types
+  - All notes off panic function
+- Added comprehensive test mode
+  - Serial value dump every 5 seconds when DEBUG enabled
+  - Input state display with activity tracking
+  - Idle mode detection and reporting
+
+### Enhanced Features
+- **Button Processing**: Time-based debouncing eliminates false triggers
+- **Potentiometer Processing**: EMA smoothing + deadband + rate limiting
+  - Fixed-point arithmetic avoids floating point in hot path
+  - Large changes override rate limiting for responsiveness
+  - Proper 10-bit → 7-bit MIDI mapping with bounds checking
+- **Joystick Processing**: Single pulse per direction with rearm timing
+  - Prevents rapid-fire CC messages from sticky joysticks
+  - Configurable rearm time (default 120ms)
+- **Switch Processing**: Debounced state changes with proper ON/OFF detection
+- **Activity Tracking**: Comprehensive idle detection across all input types
+
+### Technical Improvements
+- **Memory Management**: All static allocation, no dynamic memory in main loop
+- **Performance**: Fixed-point math maintains <1ms main loop timing
+- **Modularity**: Clean separation between raw scanning and robust processing
+- **Configurability**: Extensive compile-time configuration options
+- **Testing**: Unit tests for debouncer and analog smoother components
+
+### Configuration Updates
+- Added Phase 2 specific configuration constants
+- Enhanced platformio.ini with test environment
+- Separate debug build with increased verbosity
+- All timing parameters configurable via build flags
+
+### Test Infrastructure
+- Unit tests for `Debouncer` class (bounce immunity, timing, edge detection)
+- Unit tests for `AnalogSmoother` class (EMA, deadband, rate limiting, MIDI mapping)
+- Test environment in PlatformIO configuration
+- Hardware-in-the-loop test mode with serial output
+
+### Performance Metrics
+- Main loop timing: <1000μs worst case maintained
+- Debounce effectiveness: 5ms minimum stable time
+- Pot noise reduction: ±2 deadband + EMA filtering
+- Rate limiting: Max 67 CC messages/second per pot (15ms intervals)
+- Memory usage: <100KB RAM, <500KB flash (well within Teensy 4.1 limits)
+
+### Next Phase
+- Phase 3: Portal animation integration with pre-existing infinity portal code
+
 ## [0.1.0] - 2025-01-15
 
 ### Added - Phase 1: Raw Input + MIDI

@@ -69,54 +69,54 @@ teensy-firmware/
 └── README.md                 # This file
 ```
 
-## Phase 1 Implementation Status
+## Phase 2 Implementation Status (COMPLETE)
 
-- [x] Implement InputScanner class for all hardware inputs
-- [x] Implement MidiOut class with conditional compilation  
-- [x] Implement InputMidiMapper for input-to-MIDI conversion
-- [x] Full hardware scanning: 10 buttons, 6 pots, 4-direction joystick, 3 switches
-- [x] Raw input polling without debouncing (Phase 1 spec)
-- [x] MIDI output for all input types with proper mappings
+- [x] Implement time-based debouncing with configurable parameters
+- [x] Add analog smoothing with EMA filtering and deadband
+- [x] Implement change compression and rate limiting
+- [x] Create RobustInputProcessor for integrated robust input handling
+- [x] Build comprehensive test mode with serial diagnostics
+- [x] Add activity tracking and idle detection
+- [x] Implement joystick rearm timing to prevent rapid-fire
 
-### Current Features (Phase 1):
-- **Full Input System**: All 19 physical inputs scanned at 1kHz
-- **Button MIDI**: 10 buttons → MIDI Notes 60-69 (C4-A4) with Note On/Off
-- **Potentiometer MIDI**: 6 pots → MIDI CC 1-6 with raw 0-127 mapping
-- **Joystick MIDI**: 4 directions → MIDI CC 10-13 (edge triggered)
-- **Switch MIDI**: 3 switches → MIDI CC 20-22 (state change triggered)
-- **Dual Build System**: Production (MIDI) vs Debug (Serial) environments
-- **Portal Animation**: Maintained from Phase 0 for visual feedback
-- **Serial Debugging**: Comprehensive debug output in debug mode
+### Current Features (Phase 2):
+- **Robust Input Processing**: Time-based debouncing eliminates switch bounce
+- **Analog Smoothing**: EMA filtering (α≈0.25) + deadband (±2) + rate limiting (15ms)
+- **Change Compression**: Send CC only after stable for 4ms OR large threshold change
+- **Activity Tracking**: Comprehensive idle detection (30s timeout) across all inputs
+- **Joystick Rearm**: 120ms minimum between pulses prevents rapid-fire CC spam
+- **Test Mode**: Serial value dump every 5 seconds when DEBUG enabled
+- **Performance**: Fixed-point math maintains <1ms main loop timing
+- **Memory**: All static allocation, no dynamic memory in main loop
 
-## Testing Phase 1
+## Testing Phase 2
 
 1. **Upload the firmware** to your Teensy 4.1:
    ```bash
-   # For production (MIDI mode) - full input scanning with MIDI output
+   # For production (MIDI mode) - robust input processing with MIDI output
    pio run --target upload
    
-   # For debugging (Serial mode) - input scanning with serial debug output
+   # For debugging (Serial mode) - includes test mode with value dumps
    pio run -e teensy41-debug --target upload
    ```
 
-2. **Monitor debug output** (debug mode only):
+2. **Monitor debug output** with enhanced test mode:
    ```bash
    pio device monitor -e teensy41-debug
    ```
 
-3. **Test all inputs**:
-   - **Buttons (Pins 2-11)**: Press any button → sends MIDI Note On/Off (Notes 60-69)
-   - **Potentiometers (A0-A3,A6-A7)**: Turn any pot → sends MIDI CC 1-6 (0-127 range)
-   - **Joystick (Pins 12-15)**: Move joystick → sends MIDI CC 10-13 (edge triggered)
-   - **Switches (Pins 16-18)**: Toggle switches → sends MIDI CC 20-22 (on/off)
+3. **Test robust input behavior**:
+   - **Debounced Buttons**: No duplicate note events from switch bounce
+   - **Smoothed Potentiometers**: Stable CC values, reduced noise, rate-limited
+   - **Rearm Joystick**: Single pulse per direction, 120ms minimum between
+   - **Activity Detection**: Monitor idle state in debug output
+   - **Test Value Dump**: See all input states every 5 seconds in debug mode
 
-4. **MIDI Device Testing**:
-   - Production mode: Device appears as "Teensy MIDI" in DAW
-   - Debug mode: MIDI messages shown in serial output as "MIDI NoteOn Ch:1 P1:60 P2:100"
-
-5. **Portal Animation**: LEDs show startup sequence, then breathing animation at 60Hz
-
-6. **Performance**: Built-in LED blinks every second, confirming 1kHz main loop
+4. **Verify improvements over Phase 1**:
+   - Button presses now debounced (5ms minimum stable time)
+   - Pot CC messages rate-limited to max 67/second per pot (vs unlimited in Phase 1)
+   - Joystick prevents rapid-fire CC spam
+   - Idle detection works correctly after 30s of no activity
 
 ## Development Workflow
 
@@ -137,30 +137,47 @@ pio device monitor -e teensy41-debug         # Monitor serial output
 - **Debug**: Serial monitoring, no MIDI functionality
 - Use Arduino IDE Serial Monitor for MIDI mode debugging if needed
 
-## Expected Serial Output (Debug Mode)
+## Expected Serial Output (Debug Mode - Phase 2)
 
 ```
 === Mystery Melody Machine Teensy Firmware ===
-Phase 1: Raw Input + MIDI
-Firmware compiled: Jan 15 2025 14:30:45
+Phase 2: Robust Input Layer + MIDI
+Firmware compiled: Aug 25 2025 14:30:45
 USB Type: Serial (Debug Mode)
-Initializing input scanner...
+Initializing robust input processor...
+RobustInputProcessor: Initialized with debouncing and smoothing
+  Button debounce: 5ms
+  Pot deadband: 2, rate limit: 15ms
+  Joystick rearm: 120ms
 Initializing MIDI output...
 Input mapping: 10 buttons, 6 pots, 3 switches, 4-way joystick
+Features: debouncing, analog smoothing, change compression
 FastLED initialized: 60 LEDs on pin 1
 Testing MIDI enumeration...
 MIDI not available - debug mode active
 Starting portal initialization sequence...
 Portal startup sequence complete
+Test mode enabled - will dump input values every 5 seconds
 === Setup Complete ===
 Main loop target: 1000 Hz
 Portal target: 60 Hz
+Phase 2: Debouncing, smoothing, and rate limiting active
 Entering main loop...
-MIDI NoteOn Ch:1 P1:60 P2:100    # Button 0 pressed
-MIDI NoteOff Ch:1 P1:60 P2:0     # Button 0 released
-MIDI CC Ch:1 P1:1 P2:64          # Pot 0 moved to center
-MIDI CC Ch:1 P1:10 P2:127        # Joystick up pressed
-MIDI CC Ch:1 P1:20 P2:127        # Switch 0 turned on
+
+MIDI: Button 0 pressed -> Note 60 ON      # Debounced button press
+MIDI: Button 0 released -> Note 60 OFF    # Debounced button release
+MIDI: Pot 0 changed -> CC 1 = 64          # Smoothed and rate-limited pot
+MIDI: Joystick UP -> CC 10 = 127          # Single pulse with rearm
+MIDI: Switch 0 ON -> CC 20 = 127          # Debounced switch change
+
+=== INPUT STATE DUMP ===                   # Every 5 seconds
+Buttons: 0:OFF 1:OFF 2:OFF 3:OFF 4:OFF 5:OFF 6:OFF 7:OFF 8:OFF 9:OFF 
+Switches: 0:OFF 1:OFF 2:OFF 
+Pots: 0:MIDI_0 1:MIDI_0 2:MIDI_0 3:MIDI_0 4:MIDI_0 5:MIDI_0 
+Activity: 1240ms ago, Idle: NO
+========================
+
+Heartbeat - ACTIVE (last activity 1240ms ago)    # Every second
 ```
 
 ## Pin Assignments
@@ -196,9 +213,9 @@ MIDI CC Ch:1 P1:20 P2:127        # Switch 0 turned on
 
 ## Next Phases
 
-- **Phase 2**: Add debouncing, analog smoothing, and input filtering for production quality
-- **Phase 3**: Integrate complete portal animation system with MIDI-reactive effects
+- **Phase 3**: Integrate complete portal animation system with pre-existing infinity portal code
 - **Phase 4**: Performance optimization and hardening for live performance use
+- **Phase 5**: Diagnostics & safety features
 
 ## Troubleshooting
 

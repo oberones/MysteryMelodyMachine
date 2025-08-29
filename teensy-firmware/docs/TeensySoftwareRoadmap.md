@@ -77,10 +77,10 @@ Stretch Role: Light-weight rule hooks (ONLY if round‑trip to Pi causes unaccep
 - [X] Confirm USB Type = MIDI enumerates
 
 ### Phase 1: Raw Input + MIDI
-- [ ] Define pin & mapping tables
-- [ ] Poll buttons → send NoteOn/NoteOff (no debounce)
-- [ ] Poll pots → send CC on value change (raw 0–127 mapping)
-- [ ] Poll joystick & switches → send CC (edge triggered naive)
+- [X] Define pin & mapping tables
+- [X] Poll buttons → send NoteOn/NoteOff (no debounce)
+- [X] Poll pots → send CC on value change (raw 0–127 mapping)
+- [X] Poll joystick & switches → send CC (edge triggered naive)
 
 ### Phase 2: Robust Input Layer
 - [ ] Implement time-based debounce (per control configurable)
@@ -89,7 +89,7 @@ Stretch Role: Light-weight rule hooks (ONLY if round‑trip to Pi causes unaccep
 - [ ] Unit-like serial test mode: dump values each second
 
 ### Phase 3: Portal Animation Integration
-- [ ] Integrate pre-existing infinity portal code from `~/Projects/coding/arduino/uno/arduino-infinity-portal`
+- [ ] Integrate pre-existing infinity portal code from `/Users/oberon/Projects/coding/arduino/uno/arduino-infinity-portal`
 - [ ] Implement portal animation programs: spiral, pulse, wave, chaos, ambient, idle
 - [ ] Add portal cue handler for receiving Pi commands (program switch, BPM sync, intensity)
 - [ ] Button press visual feedback within current portal program
