@@ -1,0 +1,114 @@
+logging:
+  level: INFO
+
+midi:
+  input_port: "Teensy MIDI:Teensy MIDI MIDI 1 28:0"
+  output_port: "RK006:RK006 OUT_ALL 16:0"
+  input_channel: 11
+  output_channel: 1
+
+  clock:
+    enabled: false            # Enable MIDI clock output to sync external devices
+    send_start_stop: true     # Send MIDI start/stop messages  
+    send_song_position: true  # Send song position pointer messages
+
+  cc_profile:
+    active_profile: "korg_nts1_mk2" # Active CC profile (korg_nts1_mk2, waldorf_streichfett, generic_analog, fm_synth)
+    parameter_smoothing: true       # Enable parameter smoothing for CC messages
+    cc_throttle_ms: 10              # Minimum milliseconds between CC messages (latency optimization)
+
+mapping:
+  buttons:
+    "60-69": trigger_step
+  ccs:
+    "27": tempo
+    "21": filter_cutoff
+    "22": reverb_mix
+    "23": swing
+    "24": density
+    "25": master_volume
+    "26": gate_length       # Note duration control
+    "50": sequence_length
+    "51": scale_select
+    "52": chaos_lock
+    "53": reserved
+    "60": mode
+    "61": palette
+    "62": drift
+
+sequencer:
+  steps: 32
+  bpm: 15
+  swing: 0.12
+  density: 0.85
+  root_note: 55                # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
+  gate_length: 1               # Note duration as fraction of step duration (0.1-1.0)
+  quantize_scale_changes: bar
+  step_pattern: all_on         # syncopated | four_on_the_floor | all_on
+  direction_pattern: random
+
+scales:
+  - major
+  - minor
+  - pentatonic_major
+  - pentatonic_minor
+  - mixolydian
+  - blues
+  - dorian
+  - locrian
+  - chromatic
+
+mutation:
+  interval_min_s: 30
+  interval_max_s: 60
+  max_changes_per_cycle: 3
+
+idle:
+  timeout_ms: 30000
+  ambient_profile: meditative # slow_fade | meditative
+  fade_in_ms: 4000
+  fade_out_ms: 800
+  smooth_bpm_transitions: true
+  bpm_transition_duration_s: 4.0
+
+logging:
+  level: INFO
+
+api:
+  enabled: true
+  port: 8080
+
+# Built-in profiles: korg_nts1_mk2, generic_analog, fm_synth
+cc_profiles:
+  # Example custom profile for a specific synthesizer
+  my_custom_synth:
+    name: "My Custom Synthesizer"
+    description: "Custom CC mapping for my synthesizer"
+    parameters:
+      filter_cutoff: 
+        cc: 74
+        range: [0, 127]
+        curve: "exponential"
+        name: "Low Pass Filter Cutoff"
+      filter_resonance:
+        cc: 71  
+        range: [0, 127]
+        curve: "linear"
+        name: "Filter Resonance"
+      envelope_attack:
+        cc: 73
+        range: [0, 127] 
+        curve: "exponential"
+        name: "Amplitude Envelope Attack"
+      lfo_rate:
+        cc: 76
+        range: [0, 127]
+        curve: "logarithmic" 
+        name: "LFO Rate"
+      # Example stepped parameter (for oscillator types, etc.)
+      osc_waveform:
+        cc: 70
+        range: [0, 127]
+        curve: "stepped"
+        steps: 4
+        name: "Oscillator Waveform"
