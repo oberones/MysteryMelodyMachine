@@ -1,3 +1,15 @@
+## v0.7.0 (2025-08-29)
+
+### Feat
+
+- **rpi**: add mutation plugin for nts1 mk2
+- **teensy**: implement debounce and analog smoothing
+
+### Fix
+
+- **teensy**: update default pinout
+- address issues in default pin assignment
+
 ## v0.6.0 (2025-08-29)
 
 ### Feat
