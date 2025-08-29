@@ -15,6 +15,7 @@ from sequencer import create_sequencer, NoteEvent
 from action_handler import ActionHandler
 from mutation import create_mutation_engine
 from idle import create_idle_manager
+from cc_profiles import load_custom_profiles
 
 
 @dataclass
@@ -164,6 +165,9 @@ def main(argv: Optional[list[str]] = None):
     log.info(f"cc_mappings={cc_mappings}")
     log.info("=== END CONFIGURATION ===")
 
+    # Load custom CC profiles from configuration
+    load_custom_profiles(cfg.model_dump())
+
     # Initialize state and sequencer
     state = get_state()
     
@@ -211,6 +215,31 @@ def main(argv: Optional[list[str]] = None):
     
     # Create mutation engine
     mutation_engine = create_mutation_engine(cfg.mutation, state)
+    
+    # Auto-integrate NTS-1 plugin if NTS-1 CC profile is active
+    if cfg.midi.cc_profile.active_profile == "korg_nts1_mk2":
+        try:
+            from nts1_mutation_plugin import setup_nts1_mutations
+            
+            # Determine style from config or use default
+            config_dict = cfg.model_dump()
+            nts1_config = config_dict.get("mutation", {}).get("nts1_plugin", {})
+            style = nts1_config.get("style", "default")
+            replace_default = nts1_config.get("replace_default_rules", True)
+            
+            # Clear default rules if requested
+            if replace_default:
+                mutation_engine._rules.clear()
+                log.info("Cleared default mutation rules for NTS-1 plugin")
+            
+            # Set up NTS-1 mutations
+            setup_nts1_mutations(mutation_engine, state, style)
+            log.info(f"NTS-1 mutation plugin auto-loaded (style={style}, replace_default={replace_default})")
+            
+        except ImportError as e:
+            log.warning(f"NTS-1 plugin not available: {e}")
+        except Exception as e:
+            log.error(f"Failed to auto-load NTS-1 plugin: {e}")
     
     # Create idle manager
     idle_manager = create_idle_manager(cfg.idle, state)

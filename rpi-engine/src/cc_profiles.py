@@ -148,42 +148,64 @@ class CCProfileRegistry:
     def _load_builtin_profiles(self) -> None:
         """Load built-in CC profiles for common devices."""
         
-        # Korg NTS-1 MK2 - Complete parameter mapping
+        # Korg NTS-1 MK2 - Complete parameter mapping based on official MIDI implementation
         korg_nts1_mk2 = CCProfile(
             name="Korg NTS-1 MK2",
-            description="Complete parameter mapping for Korg NTS-1 MK2 digital synthesizer",
+            description="Complete parameter mapping for Korg NTS-1 MK2 digital synthesizer (corrected per official MIDI implementation)",
             parameters={
-                # Oscillator section
-                "osc_type": CCParameter(cc=53, range=(0, 127), curve=CurveType.STEPPED, steps=4, name="Oscillator Type"),
-                "osc_shape": CCParameter(cc=54, range=(0, 127), curve=CurveType.LINEAR, name="Oscillator Shape"),
-                "osc_alt": CCParameter(cc=55, range=(0, 127), curve=CurveType.LINEAR, name="Oscillator Alt"),
+                # Master Volume
+                "master_volume": CCParameter(cc=7, range=(0, 127), curve=CurveType.LINEAR, name="Master Volume"),
                 
-                # Filter section  
-                "filter_cutoff": CCParameter(cc=42, range=(0, 127), curve=CurveType.EXPONENTIAL, name="Filter Cutoff"),
-                "filter_resonance": CCParameter(cc=43, range=(0, 127), curve=CurveType.LINEAR, name="Filter Resonance"),
-                "filter_sweep": CCParameter(cc=44, range=(0, 127), curve=CurveType.LINEAR, name="Filter Sweep"),
-                
-                # Envelope section
+                # Envelope Generator
+                "eg_type": CCParameter(cc=14, range=(0, 127), curve=CurveType.STEPPED, steps=5, name="EG Type"),
                 "eg_attack": CCParameter(cc=16, range=(0, 127), curve=CurveType.EXPONENTIAL, name="EG Attack"),
-                "eg_decay": CCParameter(cc=17, range=(0, 127), curve=CurveType.EXPONENTIAL, name="EG Decay"),
-                "eg_sustain": CCParameter(cc=18, range=(0, 127), curve=CurveType.LINEAR, name="EG Sustain"),
                 "eg_release": CCParameter(cc=19, range=(0, 127), curve=CurveType.EXPONENTIAL, name="EG Release"),
                 
-                # LFO section
-                "lfo_rate": CCParameter(cc=24, range=(0, 127), curve=CurveType.LOGARITHMIC, name="LFO Rate"),
-                "lfo_depth": CCParameter(cc=26, range=(0, 127), curve=CurveType.LINEAR, name="LFO Depth"),
+                # Tremolo
+                "tremolo_depth": CCParameter(cc=20, range=(0, 127), curve=CurveType.LINEAR, name="Tremolo Depth"),
+                "tremolo_rate": CCParameter(cc=21, range=(0, 127), curve=CurveType.LOGARITHMIC, name="Tremolo Rate"),
                 
-                # Effects
-                "mod_time": CCParameter(cc=28, range=(0, 127), curve=CurveType.LINEAR, name="Mod Effect Time"),
-                "mod_depth": CCParameter(cc=29, range=(0, 127), curve=CurveType.LINEAR, name="Mod Effect Depth"),
-                "delay_time": CCParameter(cc=30, range=(0, 127), curve=CurveType.LINEAR, name="Delay Time"),
-                "delay_depth": CCParameter(cc=31, range=(0, 127), curve=CurveType.LINEAR, name="Delay Depth"),
-                "reverb_time": CCParameter(cc=32, range=(0, 127), curve=CurveType.LINEAR, name="Reverb Time"),
-                "reverb_depth": CCParameter(cc=33, range=(0, 127), curve=CurveType.LINEAR, name="Reverb Depth"),
+                # Oscillator LFO
+                "osc_lfo_rate": CCParameter(cc=24, range=(0, 127), curve=CurveType.LOGARITHMIC, name="OSC LFO Rate"),
+                "osc_lfo_depth": CCParameter(cc=26, range=(0, 127), curve=CurveType.LINEAR, name="OSC LFO Depth"),
                 
-                # Master controls
-                "master_volume": CCParameter(cc=7, range=(0, 127), curve=CurveType.LINEAR, name="Master Volume"),
-                "portamento": CCParameter(cc=5, range=(0, 127), curve=CurveType.EXPONENTIAL, name="Portamento Time"),
+                # Modulation Effects
+                "mod_a": CCParameter(cc=28, range=(0, 127), curve=CurveType.LINEAR, name="MOD A"),
+                "mod_b": CCParameter(cc=29, range=(0, 127), curve=CurveType.LINEAR, name="MOD B"),
+                
+                # Delay Effects
+                "delay_a": CCParameter(cc=30, range=(0, 127), curve=CurveType.LINEAR, name="DELAY A"),
+                "delay_b": CCParameter(cc=31, range=(0, 127), curve=CurveType.LINEAR, name="DELAY B"),
+                "delay_mix": CCParameter(cc=33, range=(0, 127), curve=CurveType.LINEAR, name="DELAY MIX"),
+                
+                # Reverb Effects
+                "reverb_a": CCParameter(cc=34, range=(0, 127), curve=CurveType.LINEAR, name="REVERB A"),
+                "reverb_b": CCParameter(cc=35, range=(0, 127), curve=CurveType.LINEAR, name="REVERB B"),
+                "reverb_mix": CCParameter(cc=36, range=(0, 127), curve=CurveType.LINEAR, name="REVERB MIX"),
+                
+                # Filter Section
+                "filter_type": CCParameter(cc=42, range=(0, 127), curve=CurveType.STEPPED, steps=7, name="Filter Type"),
+                "filter_cutoff": CCParameter(cc=43, range=(0, 127), curve=CurveType.EXPONENTIAL, name="Filter Cutoff"),
+                "filter_resonance": CCParameter(cc=44, range=(0, 127), curve=CurveType.LINEAR, name="Filter Resonance"),
+                "filter_sweep_depth": CCParameter(cc=45, range=(0, 127), curve=CurveType.LINEAR, name="Filter Sweep Depth"),
+                "filter_sweep_rate": CCParameter(cc=46, range=(0, 127), curve=CurveType.LOGARITHMIC, name="Filter Sweep Rate"),
+                
+                # Oscillator Section  
+                "osc_type": CCParameter(cc=53, range=(0, 127), curve=CurveType.STEPPED, steps=7, name="OSC Type"),
+                "osc_a": CCParameter(cc=54, range=(0, 127), curve=CurveType.LINEAR, name="OSC A"),
+                "osc_b": CCParameter(cc=55, range=(0, 127), curve=CurveType.LINEAR, name="OSC B"),
+                
+                # Effect Types (stepped parameters with specific values)
+                "mod_type": CCParameter(cc=88, range=(0, 127), curve=CurveType.STEPPED, steps=9, name="MOD Type"),
+                "delay_type": CCParameter(cc=89, range=(0, 127), curve=CurveType.STEPPED, steps=13, name="DELAY Type"),
+                "reverb_type": CCParameter(cc=90, range=(0, 127), curve=CurveType.STEPPED, steps=11, name="REVERB Type"),
+                
+                # Arpeggiator
+                "arp_pattern": CCParameter(cc=117, range=(0, 127), curve=CurveType.STEPPED, steps=10, name="ARP Pattern"),
+                "arp_intervals": CCParameter(cc=118, range=(0, 127), curve=CurveType.STEPPED, steps=6, name="ARP Intervals"),
+                "arp_length": CCParameter(cc=119, range=(0, 127), curve=CurveType.LINEAR, name="ARP Length"),
+                
+                # Standard MIDI
                 "sustain_pedal": CCParameter(cc=64, range=(0, 127), curve=CurveType.STEPPED, steps=2, name="Sustain Pedal"),
             }
         )
