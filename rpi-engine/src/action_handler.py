@@ -38,7 +38,18 @@ class ActionHandler:
             'trigger_step': self._handle_trigger_step,
             'tempo': self._handle_tempo,
             'filter_cutoff': self._handle_filter_cutoff,
+            'filter_resonance': self._handle_filter_resonance,
+            'eg_attack': self._handle_eg_attack,
+            'eg_release': self._handle_eg_release,
             'reverb_mix': self._handle_reverb_mix,
+            'delay_mix': self._handle_delay_mix,
+            'osc_a': self._handle_osc_a,
+            'osc_b': self._handle_osc_b,
+            'mod_a': self._handle_mod_a,
+            'mod_b': self._handle_mod_b,
+            'osc_type': self._handle_osc_type,
+            'filter_type': self._handle_filter_type,
+            'mod_type': self._handle_mod_type,
             'swing': self._handle_swing,
             'density': self._handle_density,
             'gate_length': self._handle_gate_length,
@@ -124,7 +135,7 @@ class ActionHandler:
             self.state.set('bpm', bpm, source='midi')
     
     def _handle_filter_cutoff(self, event: SemanticEvent):
-        """Handle filter cutoff change (CC 21)."""
+        """Handle filter cutoff change (CC 2 -> NTS-1 CC 43)."""
         if event.value is not None:
             # Store in state for internal use
             self.state.set('filter_cutoff', event.value, source='midi')
@@ -134,6 +145,107 @@ class ActionHandler:
                 # Map CC value (0-127) to 0.0-1.0 for CC profile
                 normalized_value = event.value / 127.0
                 self._external_hardware.send_parameter_change('filter_cutoff', normalized_value)
+    
+    def _handle_filter_resonance(self, event: SemanticEvent):
+        """Handle filter resonance change (CC 22 -> NTS-1 CC 44)."""
+        if event.value is not None:
+            # Store in state for internal use  
+            self.state.set('filter_resonance', event.value, source='midi')
+            
+            # Phase 7: Send to external hardware via CC profile
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('filter_resonance', normalized_value)
+    
+    def _handle_eg_attack(self, event: SemanticEvent):
+        """Handle EG attack change (CC 23 -> NTS-1 CC 16)."""
+        if event.value is not None:
+            self.state.set('eg_attack', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('eg_attack', normalized_value)
+    
+    def _handle_eg_release(self, event: SemanticEvent):
+        """Handle EG release change (CC 24 -> NTS-1 CC 19)."""
+        if event.value is not None:
+            self.state.set('eg_release', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('eg_release', normalized_value)
+    
+    def _handle_delay_mix(self, event: SemanticEvent):
+        """Handle delay mix change (CC 26 -> NTS-1 CC 33)."""
+        if event.value is not None:
+            self.state.set('delay_mix', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('delay_mix', normalized_value)
+    
+    def _handle_osc_a(self, event: SemanticEvent):
+        """Handle OSC A parameter change (CC 50 -> NTS-1 CC 54)."""
+        if event.value is not None:
+            self.state.set('osc_a', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('osc_a', normalized_value)
+    
+    def _handle_osc_b(self, event: SemanticEvent):
+        """Handle OSC B parameter change (CC 51 -> NTS-1 CC 55)."""
+        if event.value is not None:
+            self.state.set('osc_b', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('osc_b', normalized_value)
+    
+    def _handle_mod_a(self, event: SemanticEvent):
+        """Handle MOD A parameter change (CC 52 -> NTS-1 CC 28)."""
+        if event.value is not None:
+            self.state.set('mod_a', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('mod_a', normalized_value)
+    
+    def _handle_mod_b(self, event: SemanticEvent):
+        """Handle MOD B parameter change (CC 53 -> NTS-1 CC 29)."""
+        if event.value is not None:
+            self.state.set('mod_b', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('mod_b', normalized_value)
+    
+    def _handle_osc_type(self, event: SemanticEvent):
+        """Handle OSC type change (CC 60 -> NTS-1 CC 53)."""
+        if event.value is not None:
+            self.state.set('osc_type', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('osc_type', normalized_value)
+    
+    def _handle_filter_type(self, event: SemanticEvent):
+        """Handle filter type change (CC 61 -> NTS-1 CC 42)."""
+        if event.value is not None:
+            self.state.set('filter_type', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('filter_type', normalized_value)
+    
+    def _handle_mod_type(self, event: SemanticEvent):
+        """Handle MOD type change (CC 62 -> NTS-1 CC 88)."""
+        if event.value is not None:
+            self.state.set('mod_type', event.value, source='midi')
+            
+            if self._external_hardware:
+                normalized_value = event.value / 127.0
+                self._external_hardware.send_parameter_change('mod_type', normalized_value)
     
     def _handle_reverb_mix(self, event: SemanticEvent):
         """Handle reverb mix change (CC 22)."""

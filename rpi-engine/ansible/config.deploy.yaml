@@ -18,7 +18,7 @@ mapping:
   buttons:
     "60-69": trigger_step
   ccs:
-    "27": tempo
+    "2": tempo
     "21": filter_cutoff      # K1 -> NTS-1 Filter Cutoff (CC 43)
     "22": filter_resonance   # K2 -> NTS-1 Filter Resonance (CC 44)
     "23": eg_attack          # K3 -> NTS-1 EG Attack (CC 16)

@@ -213,6 +213,13 @@ def main(argv: Optional[list[str]] = None):
     # Create action handler
     action_handler = ActionHandler(state, sequencer)
     
+    # Phase 7: Initialize external hardware manager
+    from external_hardware import ExternalHardwareManager
+    external_hardware = ExternalHardwareManager(midi_output, cfg)
+    external_hardware.start()
+    action_handler.set_external_hardware(external_hardware)
+    log.info("External hardware manager initialized and connected")
+    
     # Create mutation engine
     mutation_engine = create_mutation_engine(cfg.mutation, state)
     
@@ -309,6 +316,7 @@ def main(argv: Optional[list[str]] = None):
             sequencer.stop()
             mutation_engine.stop()
             idle_manager.stop()
+            external_hardware.stop()  # Stop external hardware manager
             note_scheduler.stop()
             midi.close()
             if midi_output:
