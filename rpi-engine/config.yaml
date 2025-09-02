@@ -3,9 +3,7 @@ logging:
 
 midi:
   input_port: "auto"
-  output_port: "auto"  # Set to "auto" or specific port name to enable MIDI output
-  # input_port: "Teensy MIDI"
-  # output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
+  output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
 
   input_channel: 1
   output_channel: 10
@@ -41,15 +39,15 @@ mapping:
     "62": mod_type           # S3 -> NTS-1 MOD Type (CC 88)
 
 sequencer:
-  steps: 16
-  bpm: 95
+  steps: 8
+  bpm: 45
   swing: 0.12
-  density: 0.85
-  root_note: 61           # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
+  density: .75
+  root_note: 62           # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
   gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
   step_pattern: syncopated # syncopated | four_on_the_floor | all_on
-  direction_pattern: random
+  direction_pattern: fugue # forward | backward | ping_pong | random | fugue
 
 scales:
   - minor
@@ -76,5 +74,5 @@ idle:
   ambient_profile: meditative # slow_fade | meditative
   fade_in_ms: 4000
   fade_out_ms: 800
-  smooth_bpm_transitions: false
-  bpm_transition_duration_s: 4.0
+  smooth_bpm_transitions: true
+  bpm_transition_duration_s: 30

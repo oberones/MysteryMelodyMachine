@@ -13,6 +13,7 @@ import logging
 import random
 from state import State, StateChange
 from scale_mapper import ScaleMapper
+from fugue import FugueSequencer
 
 log = logging.getLogger(__name__)
 
@@ -169,6 +170,9 @@ class Sequencer:
         self._bpm_transition_duration = 0.0
         self._bpm_transition_start_bpm = 0.0
         self._bpm_transition_target_bpm = 0.0
+
+        # Fugue sequencer (lazy initialized)
+        self._fugue_sequencer: Optional[FugueSequencer] = None
 
         # Listen for state changes
         self.state.add_listener(self._on_state_change)
@@ -380,7 +384,7 @@ class Sequencer:
         Returns:
             Valid direction pattern name
         """
-        valid_directions = {'forward', 'backward', 'ping_pong', 'random'}
+        valid_directions = {'forward', 'backward', 'ping_pong', 'random', 'fugue'}
         
         if preset_name in valid_directions:
             return preset_name
@@ -392,9 +396,9 @@ class Sequencer:
         """Set the sequencer direction pattern.
         
         Args:
-            direction: Direction pattern ('forward', 'backward', 'ping_pong', 'random')
+            direction: Direction pattern ('forward', 'backward', 'ping_pong', 'random', 'fugue')
         """
-        valid_directions = {'forward', 'backward', 'ping_pong', 'random'}
+        valid_directions = {'forward', 'backward', 'ping_pong', 'random', 'fugue'}
         
         if direction not in valid_directions:
             log.warning(f"Invalid direction pattern: {direction}, using 'forward'")
@@ -412,6 +416,10 @@ class Sequencer:
         elif direction == 'ping_pong':
             self._direction = 1
             self._ping_pong_direction = 1
+        elif direction == 'fugue':
+            # Initialize fugue sequencer if needed
+            if self._fugue_sequencer is None:
+                self._fugue_sequencer = FugueSequencer(self.state, self.scale_mapper)
         # For random, we don't reset anything - it's calculated per step
         
         log.info(f"direction_pattern_set pattern={direction}")
@@ -456,6 +464,11 @@ class Sequencer:
             else:
                 # Fallback if sequence length is 1
                 return current_step
+        
+        elif direction_pattern == 'fugue':
+            # In fugue mode, step advancement is less important since timing is
+            # controlled by the fugue engine itself. Just advance forward.
+            return (current_step + 1) % sequence_length
         
         else:
             # Fallback to forward
@@ -548,6 +561,10 @@ class Sequencer:
             elif direction == 'ping_pong':
                 self._direction = 1
                 self._ping_pong_direction = 1
+            elif direction == 'fugue':
+                # Initialize fugue sequencer if needed
+                if self._fugue_sequencer is None:
+                    self._fugue_sequencer = FugueSequencer(self.state, self.scale_mapper)
             log.debug(f"direction_pattern_changed pattern={direction}")
     
     def _on_tick(self, tick: TickEvent):
@@ -583,12 +600,54 @@ class Sequencer:
     
     def _generate_step_note(self, step: int):
         """
-        Generate a note event for the given step, considering density and probability.
-        Phase 5.5: Enhanced with per-step probabilities, configurable patterns, velocity variation, and gate length variation.
+        Generate a note event for the given step.
+        
+        Standard mode: Considers density and probability controls.
+        Fugue mode: Uses fugue sequencer for contrapuntal note generation,
+                   completely bypassing normal probability controls.
+        
+        Phase 5.5: Enhanced with per-step probabilities, configurable patterns, 
+                   velocity variation, and gate length variation.
         """
         if not self._note_callback:
             return
 
+        # Check if we're in fugue mode - completely bypass probability controls
+        direction_pattern = self.state.get('direction_pattern', 'forward')
+        if direction_pattern == 'fugue':
+            if self._fugue_sequencer is None:
+                self._fugue_sequencer = FugueSequencer(self.state, self.scale_mapper)
+            
+            # Fugue mode ignores all standard probability controls:
+            # - density parameter (used only for fugue-specific parameters like stretto)
+            # - step_probabilities array
+            # - step_pattern array  
+            # - note_probability global setting
+            #
+            # The fugue engine has complete control over note generation timing
+            # and uses its own musical logic for when notes should play.
+            
+            fugue_note = self._fugue_sequencer.get_next_step_note(step)
+            if fugue_note:
+                note, velocity, duration = fugue_note
+                note_event = NoteEvent(
+                    note=note,
+                    velocity=velocity,
+                    timestamp=time.perf_counter(),
+                    step=step,
+                    duration=duration
+                )
+                
+                try:
+                    self._note_callback(note_event)
+                    log.debug(f"fugue_note_generated step={step} note={note} velocity={velocity} duration={duration:.3f}")
+                except Exception as e:
+                    log.error(f"Fugue note callback error: {e}")
+            
+            # Always exit early for fugue mode - no probability controls applied
+            return
+        
+        # Standard sequencer logic for non-fugue modes
         density = self.state.get('density', 0.85)
 
         # Density acts as a gate for the entire step's activity
