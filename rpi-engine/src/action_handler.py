@@ -12,6 +12,7 @@ import logging
 from state import State
 from sequencer import Sequencer, NoteEvent
 from events import SemanticEvent
+from note_utils import format_note_with_number
 
 if TYPE_CHECKING:
     from idle import IdleManager
@@ -125,7 +126,8 @@ class ActionHandler:
                     step=current_step
                 )
                 self._note_callback(note_event)
-                log.info(f"manual_trigger step={current_step} note={note} velocity={velocity}")
+                note_info = format_note_with_number(note)
+                log.info(f"manual_trigger step={current_step} note={note_info} velocity={velocity}")
     
     def _handle_tempo(self, event: SemanticEvent):
         """Handle tempo change (CC 20)."""

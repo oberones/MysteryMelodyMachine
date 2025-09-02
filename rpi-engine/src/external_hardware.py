@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Optional, Dict, Any, Callable
 import logging
 from dataclasses import dataclass
+from note_utils import format_note_with_number
 
 try:
     from .cc_profiles import CCProfile, get_profile, load_custom_profiles
@@ -232,7 +233,8 @@ class ExternalHardwareManager:
             return True
         
         except Exception as e:
-            log.error(f"Failed to send note on: {e}")
+            note_info = format_note_with_number(note)
+            log.error(f"Failed to send note on: note={note_info} error={e}")
             return False
     
     def send_note_off(self, note: int, when: Optional[float] = None) -> bool:
@@ -259,7 +261,8 @@ class ExternalHardwareManager:
             return True
         
         except Exception as e:
-            log.error(f"Failed to send note off: {e}")
+            note_info = format_note_with_number(note)
+            log.error(f"Failed to send note off: note={note_info} error={e}")
             return False
     
     def set_bpm(self, bpm: float) -> None:

@@ -19,9 +19,9 @@ log = logging.getLogger(__name__)
 
 class Note(TypedDict):
     """Note representation for fugue generation."""
-    pitch: int    # MIDI note number
-    dur: float    # Duration in quarter notes
-    vel: int      # Velocity (1-127)
+    pitch: Optional[int]    # MIDI note number (None for rests)
+    dur: float              # Duration in quarter notes
+    vel: int                # Velocity (1-127, ignored for rests)
 
 
 # Type aliases
@@ -83,6 +83,7 @@ class FugueEngine:
         - Intervallic variety
         - Distinctive rhythm
         - Cadential closure
+        - Strategic use of rests for breathing and phrasing
         """
         random.seed(self._seed)
         
@@ -97,16 +98,40 @@ class FugueEngine:
         start_degree = random.choice([0, 4])  # Tonic or dominant
         current_degree = start_degree
         
-        # Rhythmic patterns typical of Bach subjects
+        # Rhythmic patterns typical of Bach subjects (now including rests)
         rhythm_patterns = [
-            [0.5, 0.5, 1.0, 2.0],      # Short-short-quarter-half
-            [1.0, 0.5, 0.5, 2.0],      # Quarter-short-short-half
-            [0.25, 0.25, 0.5, 1.0, 2.0],  # Quick opening
-            [1.0, 1.0, 1.0, 1.0],      # Even quarters
+            [0.5, 0.5, 1.0, 2.0],          # Short-short-quarter-half
+            [1.0, 0.5, 0.5, 2.0],          # Quarter-short-short-half
+            [0.25, 0.25, 0.5, 1.0, 2.0],   # Quick opening
+            [1.0, 1.0, 1.0, 1.0],          # Even quarters
+            [0.5, 0.25, 0.25, 1.0, 2.0],   # Syncopated pattern
+            [1.0, 0.5, 0.5, 1.0, 1.0],     # Quarter-short-short-quarter-quarter
         ]
         
-        # Choose rhythm pattern based on mode and style
+        # Rest patterns - positions where rests can occur (True = rest, False = note)
+        rest_patterns = [
+            [False, False, False, False],                    # No rests
+            [False, False, True, False],                     # Rest on 3rd beat
+            [False, True, False, False],                     # Rest after opening
+            [True, False, False, False],                     # Anacrusis (upbeat start)
+            [False, False, False, True],                     # Rest at end
+            [False, True, False, True],                      # Alternating rests
+            [False, False, True, False, False],              # Mid-phrase rest
+        ]
+        
+        # Choose rhythm and rest patterns
         durations = random.choice(rhythm_patterns)
+        # 30% chance of including rests in the subject
+        if random.random() < 0.3:
+            rest_pattern = random.choice(rest_patterns[1:])  # Exclude no-rest pattern
+            # Ensure rest pattern matches duration pattern length
+            while len(rest_pattern) != len(durations):
+                if len(rest_pattern) < len(durations):
+                    rest_pattern.append(False)
+                else:
+                    rest_pattern = rest_pattern[:len(durations)]
+        else:
+            rest_pattern = [False] * len(durations)  # No rests
         
         # Ensure durations fit within total_duration
         duration_sum = sum(durations)
@@ -134,42 +159,62 @@ class FugueEngine:
             
             intervals.append(interval)
         
-        # Create the subject
-        for i, duration in enumerate(durations):
-            # Get the note from scale mapper
-            try:
-                pitch = self.scale_mapper.get_note(current_degree, octave=0)
-                velocity = 96  # Standard forte
-                
-                notes.append(Note(pitch=pitch, dur=duration, vel=velocity))
-                current_time += duration
-                
-                # Move to next degree if not the last note
-                if i < len(intervals):
-                    current_degree += intervals[i]
-                    # Keep within reasonable range
-                    current_degree = max(-7, min(14, current_degree))
+        # Create the subject with notes and rests
+        for i, (duration, is_rest) in enumerate(zip(durations, rest_pattern)):
+            if is_rest:
+                # Add a rest
+                notes.append(Note(pitch=None, dur=duration, vel=0))
+                log.debug(f"Adding rest: dur={duration}")
+            else:
+                # Add a note
+                try:
+                    pitch = self.scale_mapper.get_note(current_degree, octave=0)
+                    velocity = 96  # Standard forte
                     
-            except Exception as e:
-                log.warning(f"Error generating subject note at degree {current_degree}: {e}")
-                # Fallback to simpler note
-                pitch = params.key_root + (current_degree * 2)  # Whole tone approximation
-                notes.append(Note(pitch=pitch, dur=duration, vel=velocity))
+                    notes.append(Note(pitch=pitch, dur=duration, vel=velocity))
+                    current_time += duration
+                    
+                    # Move to next degree if not the last note
+                    if i < len(intervals):
+                        current_degree += intervals[i]
+                        # Keep within reasonable range
+                        current_degree = max(-7, min(14, current_degree))
+                        
+                except Exception as e:
+                    log.warning(f"Error generating subject note at degree {current_degree}: {e}")
+                    # Fallback to simpler note
+                    pitch = params.key_root + (current_degree * 2)  # Whole tone approximation
+                    notes.append(Note(pitch=pitch, dur=duration, vel=velocity))
         
-        log.info(f"subject_generated length={len(notes)} total_duration={sum(n['dur'] for n in notes):.2f}")
+        rest_count = sum(1 for note in notes if note['pitch'] is None)
+        log.info(f"subject_generated length={len(notes)} total_duration={sum(n['dur'] for n in notes):.2f} rests={rest_count}")
         return notes
     
     def transpose(self, phrase: Phrase, semitones: int) -> Phrase:
-        """Transpose a phrase by the given number of semitones."""
+        """Transpose a phrase by the given number of semitones.
+        
+        Rests are preserved unchanged during transposition.
+        """
         return [
-            Note(pitch=note['pitch'] + semitones, dur=note['dur'], vel=note['vel'])
+            Note(
+                pitch=note['pitch'] + semitones if note['pitch'] is not None else None,
+                dur=note['dur'], 
+                vel=note['vel']
+            )
             for note in phrase
         ]
     
     def invert(self, phrase: Phrase, axis_pitch: int) -> Phrase:
-        """Invert a phrase around the given axis pitch."""
+        """Invert a phrase around the given axis pitch.
+        
+        Rests are preserved unchanged during inversion.
+        """
         return [
-            Note(pitch=2 * axis_pitch - note['pitch'], dur=note['dur'], vel=note['vel'])
+            Note(
+                pitch=2 * axis_pitch - note['pitch'] if note['pitch'] is not None else None,
+                dur=note['dur'], 
+                vel=note['vel']
+            )
             for note in phrase
         ]
     
@@ -178,7 +223,10 @@ class FugueEngine:
         return list(reversed(phrase))
     
     def time_scale(self, phrase: Phrase, scale_factor: float) -> Phrase:
-        """Scale the duration of all notes by the given factor."""
+        """Scale the duration of all notes by the given factor.
+        
+        Both notes and rests are scaled proportionally.
+        """
         return [
             Note(pitch=note['pitch'], dur=note['dur'] * scale_factor, vel=note['vel'])
             for note in phrase
@@ -191,7 +239,10 @@ class FugueEngine:
         return phrase.copy()
     
     def slice_by_time(self, phrase: Phrase, t0: float, t1: float) -> Phrase:
-        """Extract a time slice from a phrase."""
+        """Extract a time slice from a phrase.
+        
+        Preserves both notes and rests within the time slice.
+        """
         result = []
         current_time = 0.0
         
@@ -208,7 +259,7 @@ class FugueEngine:
                 
                 if slice_duration > 0:
                     result.append(Note(
-                        pitch=note['pitch'],
+                        pitch=note['pitch'],  # Preserves None for rests
                         dur=slice_duration,
                         vel=note['vel']
                     ))
@@ -226,15 +277,43 @@ class FugueEngine:
         answer = self.transpose(subject, 7)
         
         # Look for the first +7 semitone leap in the subject and correct it to +5
+        # But only between actual notes (not rests)
         if len(subject) >= 2:
-            first_interval = subject[1]['pitch'] - subject[0]['pitch']
-            if first_interval == 7:  # Perfect 5th up (tonic to dominant)
-                # Adjust the answer to use +5 instead of +7 for tonal answer
-                answer[1] = Note(
-                    pitch=answer[0]['pitch'] + 5,
-                    dur=answer[1]['dur'],
-                    vel=answer[1]['vel']
-                )
+            # Find first two actual notes (not rests)
+            first_note_pitch = None
+            second_note_pitch = None
+            
+            for note in subject:
+                if note['pitch'] is not None:
+                    if first_note_pitch is None:
+                        first_note_pitch = note['pitch']
+                    else:
+                        second_note_pitch = note['pitch']
+                        break
+            
+            # If we found two actual notes, check for tonic->dominant motion
+            if first_note_pitch is not None and second_note_pitch is not None:
+                first_interval = second_note_pitch - first_note_pitch
+                if first_interval == 7:  # Perfect 5th up (tonic to dominant)
+                    # Find the corresponding notes in the answer and adjust
+                    answer_first_pitch = None
+                    answer_second_idx = None
+                    
+                    for i, note in enumerate(answer):
+                        if note['pitch'] is not None:
+                            if answer_first_pitch is None:
+                                answer_first_pitch = note['pitch']
+                            else:
+                                answer_second_idx = i
+                                break
+                    
+                    # Adjust the answer to use +5 instead of +7 for tonal answer
+                    if answer_first_pitch is not None and answer_second_idx is not None:
+                        answer[answer_second_idx] = Note(
+                            pitch=answer_first_pitch + 5,
+                            dur=answer[answer_second_idx]['dur'],
+                            vel=answer[answer_second_idx]['vel']
+                        )
         
         return answer
     
@@ -248,6 +327,18 @@ class FugueEngine:
         gap = params.entry_gap_beats or subject_length * (1 - params.stretto_overlap)
         
         entries = []
+        
+        # Special case for single voice: just play the subject repeatedly
+        if params.n_voices == 1:
+            entries.append(Entry(
+                voice_index=0,
+                start_time=0.0,
+                material=subject,
+                is_subject=True
+            ))
+            return entries
+        
+        # Multi-voice fugue: create alternating subject/answer entries
         for v in range(params.n_voices):
             start_time = v * gap
             
@@ -271,7 +362,10 @@ class FugueEngine:
         return entries
     
     def generate_episode(self, subject: Phrase, length_beats: float = 8.0) -> Phrase:
-        """Generate an episode based on subject fragments with sequences."""
+        """Generate an episode based on subject fragments with sequences.
+        
+        Includes strategic rests for phrasing and breathing.
+        """
         if not subject:
             return []
         
@@ -285,8 +379,12 @@ class FugueEngine:
             self.slice_by_time(subject, max(0, subject_length - 2.0), subject_length),  # Ending
         ]
         
-        # Choose the fragment with the most intervallic variety
-        best_fragment = max(fragment_candidates, key=lambda f: len(set(n['pitch'] for n in f)) if f else 0)
+        # Choose the fragment with the most intervallic variety (excluding rests)
+        def fragment_variety(fragment):
+            pitches = [n['pitch'] for n in fragment if n['pitch'] is not None]
+            return len(set(pitches)) if pitches else 0
+        
+        best_fragment = max(fragment_candidates, key=fragment_variety)
         
         if not best_fragment:
             best_fragment = subject[:2]  # Fallback to first two notes
@@ -316,23 +414,43 @@ class FugueEngine:
             episode.extend(transformed_fragment)
             current_time += sum(note['dur'] for note in transformed_fragment)
             
+            # Add strategic rests between fragments for phrasing (25% chance)
+            if i < len(sequence_pattern) - 1 and current_time < length_beats - 0.5 and random.random() < 0.25:
+                # Add a quarter note rest for breathing
+                rest_duration = 0.25
+                episode.append(Note(pitch=None, dur=rest_duration, vel=0))
+                current_time += rest_duration
+                log.debug(f"Added phrase rest in episode: dur={rest_duration}")
+            
             # Add small connecting passages between fragments
-            if i < len(sequence_pattern) - 1 and current_time < length_beats - 0.5:
+            elif i < len(sequence_pattern) - 1 and current_time < length_beats - 0.5:
                 # Add a connecting note (stepwise motion)
                 if episode:
-                    last_pitch = episode[-1]['pitch']
-                    connecting_note = Note(
-                        pitch=last_pitch + random.choice([-2, -1, 1, 2]),
-                        dur=0.25,
-                        vel=70
-                    )
-                    episode.append(connecting_note)
-                    current_time += 0.25
+                    # Find the last actual note (not rest) for connecting
+                    last_note_pitch = None
+                    for note in reversed(episode):
+                        if note['pitch'] is not None:
+                            last_note_pitch = note['pitch']
+                            break
+                    
+                    if last_note_pitch is not None:
+                        connecting_note = Note(
+                            pitch=last_note_pitch + random.choice([-2, -1, 1, 2]),
+                            dur=0.25,
+                            vel=70
+                        )
+                        episode.append(connecting_note)
+                        current_time += 0.25
         
+        rest_count = sum(1 for note in episode if note['pitch'] is None)
+        log.debug(f"episode_generated length={len(episode)} rests={rest_count}")
         return episode
     
     def generate_countersubject(self, subject: Phrase) -> Phrase:
-        """Generate a countersubject that works contrapuntally with the subject."""
+        """Generate a countersubject that works contrapuntally with the subject.
+        
+        Includes complementary rests that create space when the subject is active.
+        """
         if not subject:
             return []
         
@@ -340,39 +458,60 @@ class FugueEngine:
         countersubject = []
         subject_duration = sum(note['dur'] for note in subject)
         
+        # Analyze subject to create complementary countersubject
+        subject_notes = [n for n in subject if n['pitch'] is not None]
+        subject_rests = [n for n in subject if n['pitch'] is None]
+        
         # Use opposite rhythmic pattern (if subject has long notes, use short ones)
-        subject_avg_duration = subject_duration / len(subject)
+        subject_avg_duration = (subject_duration - sum(r['dur'] for r in subject_rests)) / max(1, len(subject_notes))
         
         if subject_avg_duration > 0.75:  # Subject has long notes
-            # Use shorter, more active rhythm
+            # Use shorter, more active rhythm with strategic rests
             rhythms = [0.5, 0.5, 0.25, 0.25, 0.5, 1.0]
+            rest_positions = [False, True, False, False, False, True]  # Rests on weak beats
         else:  # Subject has short notes
-            # Use longer, more sustained rhythm
+            # Use longer, more sustained rhythm with breathing spaces
             rhythms = [1.0, 1.0, 2.0]
+            rest_positions = [False, True, False]  # Rest in middle
+        
+        # Adjust patterns to match subject duration
+        total_pattern_duration = sum(rhythms)
+        if total_pattern_duration > subject_duration:
+            scale_factor = subject_duration / total_pattern_duration
+            rhythms = [d * scale_factor for d in rhythms]
         
         # Generate complementary pitch contour
         current_time = 0.0
         degree = 2  # Start on scale degree 2 (supertonic)
         
-        for duration in rhythms:
+        for i, (duration, is_rest) in enumerate(zip(rhythms, rest_positions)):
             if current_time >= subject_duration:
                 break
-                
-            try:
-                pitch = self.scale_mapper.get_note(degree, octave=0)
-                countersubject.append(Note(pitch=pitch, dur=duration, vel=80))
-                current_time += duration
-                
-                # Move by step or small leap, preferring contrary motion to subject
-                degree += random.choice([-2, -1, 1, 2])
-                degree = max(-5, min(10, degree))  # Keep in reasonable range
-                
-            except Exception:
-                # Fallback to simple harmonic interval
-                base_pitch = subject[0]['pitch'] if subject else 60
-                pitch = base_pitch + random.choice([3, 4, 7, 10])  # 3rd, 4th, 5th, 7th
-                countersubject.append(Note(pitch=pitch, dur=duration, vel=80))
+            
+            if is_rest or random.random() < 0.15:  # 15% chance of additional rests
+                # Add a rest
+                countersubject.append(Note(pitch=None, dur=duration, vel=0))
+                log.debug(f"Adding countersubject rest: dur={duration}")
+            else:
+                # Add a note
+                try:
+                    pitch = self.scale_mapper.get_note(degree, octave=0)
+                    countersubject.append(Note(pitch=pitch, dur=duration, vel=80))
+                    
+                    # Move by step or small leap, preferring contrary motion to subject
+                    degree += random.choice([-2, -1, 1, 2])
+                    degree = max(-5, min(10, degree))  # Keep in reasonable range
+                    
+                except Exception:
+                    # Fallback to simple harmonic interval
+                    base_pitch = subject_notes[0]['pitch'] if subject_notes else 60
+                    pitch = base_pitch + random.choice([3, 4, 7, 10])  # 3rd, 4th, 5th, 7th
+                    countersubject.append(Note(pitch=pitch, dur=duration, vel=80))
+            
+            current_time += duration
         
+        rest_count = sum(1 for note in countersubject if note['pitch'] is None)
+        log.debug(f"countersubject_generated length={len(countersubject)} rests={rest_count}")
         return countersubject
     
     def distribute_episode_canonically(self, voices: Score, episode: Phrase, start_time: float):
@@ -433,7 +572,10 @@ class FugueEngine:
         return entries
     
     def generate_complex_episode(self, subject: Phrase, length_beats: float) -> List[Phrase]:
-        """Generate a complex episode with multiple voice parts."""
+        """Generate a complex episode with multiple voice parts.
+        
+        Includes strategic rests for texture variation and breathing.
+        """
         if not subject:
             return []
         
@@ -449,63 +591,199 @@ class FugueEngine:
         voice_parts = []
         current_time = 0.0
         
-        # Voice 1: Original fragments in sequence
+        # Voice 1: Original fragments in sequence with occasional rests
         voice1 = []
         for i, key_shift in enumerate(key_sequence):
             if current_time >= length_beats:
                 break
+            
+            # 20% chance to add a rest between fragments for spacing
+            if i > 0 and random.random() < 0.2:
+                rest_duration = 0.5
+                voice1.append(Note(pitch=None, dur=rest_duration, vel=0))
+                current_time += rest_duration
+                log.debug(f"Added complex episode rest in voice 1: dur={rest_duration}")
+            
             fragment = fragment1 if i % 2 == 0 else fragment2
             transposed = self.transpose(fragment, key_shift)
             voice1.extend(transposed)
             current_time += sum(note['dur'] for note in transposed)
         voice_parts.append(voice1)
         
-        # Voice 2: Inverted fragments with delay
+        # Voice 2: Inverted fragments with delay and strategic rests
         voice2 = []
         if fragment1:
-            axis_pitch = fragment1[0]['pitch']
-            for i, key_shift in enumerate(key_sequence[1:]):  # Start one step later
-                if len(voice2) * 0.5 >= length_beats:
+            # Start with a rest to create staggered entry
+            voice2.append(Note(pitch=None, dur=1.0, vel=0))
+            
+            axis_pitch = None
+            # Find first non-rest note for inversion axis
+            for note in fragment1:
+                if note['pitch'] is not None:
+                    axis_pitch = note['pitch']
                     break
-                fragment = fragment2 if i % 2 == 0 else fragment1
-                inverted = self.invert(fragment, axis_pitch)
-                transposed = self.transpose(inverted, key_shift)
-                voice2.extend(transposed)
+            
+            if axis_pitch is not None:
+                for i, key_shift in enumerate(key_sequence[1:]):  # Start one step later
+                    if len(voice2) * 0.5 >= length_beats:
+                        break
+                    
+                    # Add occasional rests for breathing
+                    if i > 0 and random.random() < 0.15:
+                        voice2.append(Note(pitch=None, dur=0.25, vel=0))
+                    
+                    fragment = fragment2 if i % 2 == 0 else fragment1
+                    inverted = self.invert(fragment, axis_pitch)
+                    transposed = self.transpose(inverted, key_shift)
+                    voice2.extend(transposed)
         voice_parts.append(voice2)
         
-        # Voice 3: Augmented fragments (longer note values)
+        # Voice 3: Augmented fragments with more rests (longer note values)
         voice3 = []
         if fragment1:
+            # Start with a longer rest for even more staggered entry
+            voice3.append(Note(pitch=None, dur=2.0, vel=0))
+            
             augmented_fragment = self.time_scale(fragment1, 2.0)  # Double note values
-            for key_shift in [0, 7, -5]:  # Simpler progression for augmented material
-                transposed = self.transpose(augmented_fragment, key_shift)
-                voice3.extend(transposed)
+            for i, key_shift in enumerate([0, 7, -5]):  # Simpler progression for augmented material
                 if sum(note['dur'] for note in voice3) >= length_beats:
                     break
+                
+                # More frequent rests due to slower material
+                if i > 0 and random.random() < 0.3:
+                    voice3.append(Note(pitch=None, dur=1.0, vel=0))
+                    log.debug(f"Added rest in augmented voice: dur=1.0")
+                
+                transposed = self.transpose(augmented_fragment, key_shift)
+                voice3.extend(transposed)
         voice_parts.append(voice3)
+        
+        # Log rest statistics
+        for i, voice in enumerate(voice_parts):
+            rest_count = sum(1 for note in voice if note['pitch'] is None)
+            log.debug(f"complex_episode voice {i}: length={len(voice)} rests={rest_count}")
         
         return voice_parts
     
     def generate_cadence(self, subject: Phrase, key_root: int) -> Phrase:
-        """Generate a cadential passage to conclude the fugue."""
+        """Generate a cadential passage to conclude the fugue.
+        
+        May include rests for dramatic effect.
+        """
         try:
-            # Simple authentic cadence: V-I motion
-            cadence = [
-                Note(pitch=self.scale_mapper.get_note(4, octave=0), dur=1.0, vel=90),  # Dominant
-                Note(pitch=self.scale_mapper.get_note(0, octave=0), dur=2.0, vel=96),  # Tonic
-            ]
+            # Simple authentic cadence: V-I motion with optional rest for drama
+            cadence = []
+            
+            # 20% chance to start with a dramatic rest
+            if random.random() < 0.2:
+                cadence.append(Note(pitch=None, dur=0.5, vel=0))
+                log.debug("Adding dramatic rest before cadence")
+            
+            # Dominant
+            cadence.append(Note(pitch=self.scale_mapper.get_note(4, octave=0), dur=1.0, vel=90))
+            
+            # Optional brief rest before resolution (30% chance)
+            if random.random() < 0.3:
+                cadence.append(Note(pitch=None, dur=0.25, vel=0))
+                log.debug("Adding breath before cadential resolution")
+            
+            # Tonic resolution
+            cadence.append(Note(pitch=self.scale_mapper.get_note(0, octave=0), dur=2.0, vel=96))
+            
             return cadence
         except Exception:
             # Fallback cadence
-            return [
+            cadence = []
+            
+            # Optional dramatic rest
+            if random.random() < 0.2:
+                cadence.append(Note(pitch=None, dur=0.5, vel=0))
+            
+            cadence.extend([
                 Note(pitch=key_root + 7, dur=1.0, vel=90),  # G in C major/minor
                 Note(pitch=key_root, dur=2.0, vel=96),      # C in C major/minor
-            ]
+            ])
+            
+            return cadence
+    
+    def _render_monophonic_melody(self, subject: Phrase, params: FugueParams) -> Score:
+        """Render a single-voice melody based on the subject.
+        
+        When voices=1, we create a flowing monophonic melody that uses
+        the subject as a starting point but develops it into a longer
+        melodic line with variations and episodes.
+        """
+        log.info("Rendering monophonic melody (single voice mode)")
+        
+        # Calculate target length (shorter than multi-voice fugue)
+        max_duration_beats = 3 * 60 * (120 / 60) * (1/4)  # 3 min max for single voice
+        subject_length = sum(note['dur'] for note in subject)
+        
+        # Create single voice
+        voice = []
+        current_time = 0.0
+        
+        # Start with the original subject
+        voice.extend(subject)
+        current_time += subject_length
+        
+        # Add variations of the subject
+        variations = [
+            self.transpose(subject, 7),     # Transpose up a 5th
+            self.transpose(subject, -5),    # Transpose down a 4th
+            self.transpose(subject, 2),     # Transpose up a 2nd
+        ]
+        
+        # Optionally add transformations if enabled
+        if params.allow_inversion and len(subject) > 0:
+            first_pitch = None
+            for note in subject:
+                if note['pitch'] is not None:
+                    first_pitch = note['pitch']
+                    break
+            if first_pitch is not None:
+                variations.append(self.invert(subject, first_pitch))
+        
+        if params.allow_retrograde:
+            variations.append(self.retrograde(subject))
+        
+        # Add variations with connecting passages
+        for i, variation in enumerate(variations):
+            if current_time >= max_duration_beats - subject_length:
+                break
+            
+            # Add a brief connecting passage between variations
+            if i > 0 and current_time < max_duration_beats - subject_length - 2.0:
+                # Create a short 2-beat connecting phrase
+                connecting_phrase = self.slice_by_time(subject, 0.0, min(2.0, subject_length / 2))
+                if connecting_phrase:
+                    # Transpose the connecting phrase to bridge the keys
+                    transpose_amount = random.choice([2, -2, 5, -5])
+                    connecting_phrase = self.transpose(connecting_phrase, transpose_amount)
+                    voice.extend(connecting_phrase)
+                    current_time += sum(note['dur'] for note in connecting_phrase)
+            
+            # Add the variation
+            voice.extend(variation)
+            current_time += sum(note['dur'] for note in variation)
+        
+        # Add a final cadential phrase
+        if current_time < max_duration_beats - 4.0:
+            cadence = self.generate_cadence(subject, params.key_root)
+            voice.extend(cadence)
+        
+        log.info(f"monophonic_melody_generated duration={current_time:.1f} beats total_notes={len(voice)}")
+        return [voice]  # Return as single-voice score
     
     def render_fugue(self, subject: Phrase, params: FugueParams) -> Score:
         """Render a complete fugue according to the specification."""
-        log.info("Starting fugue generation")
+        log.info(f"Starting fugue generation with {params.n_voices} voice(s)")
         
+        # Special case for single voice mode: create a monophonic melody
+        if params.n_voices == 1:
+            return self._render_monophonic_melody(subject, params)
+        
+        # Multi-voice fugue generation
         # Step 1: Build entry plan (exposition)
         entries = self.make_entry_plan(subject, params)
         
@@ -624,8 +902,11 @@ class FugueSequencer:
     def start_new_fugue(self):
         """Start a new fugue generation and playback."""
         # Generate parameters from current state
+        voices = self.state.get('voices', 3)  # Default to 3 voices
+        voices = max(1, min(4, voices))  # Clamp to valid range (1-4)
+        
         self._fugue_params = FugueParams(
-            n_voices=min(4, max(2, self.state.get('sequence_length', 8) // 4)),
+            n_voices=voices,
             key_root=self.state.get('root_note', 60),
             mode=self.state.get('scale_mode', 'minor'),
             entry_gap_beats=2.0,
@@ -673,23 +954,25 @@ class FugueSequencer:
         
         return False
     
-    def get_next_step_note(self, step: int) -> Optional[Tuple[int, int, float]]:
-        """Get the next note for the current step in fugue mode.
+    def get_next_step_notes(self, step: int) -> List[Tuple[int, int, float]]:
+        """Get all notes that should play for the current step in fugue mode.
         
         This method is called on each sequencer step and determines if any
         fugue voices should play notes at this moment based on sequencer timing.
+        Multiple voices can play simultaneously for proper polyphonic fugue playback.
         
         Returns:
-            Tuple of (pitch, velocity, duration) or None if no note
+            List of tuples (pitch, velocity, duration) for all notes to play.
+            Empty list if no notes should play at this moment.
         """
         if not self._active_fugue:
             if self.should_start_new_fugue():
                 self.start_new_fugue()
             else:
-                return None
+                return []
         
         if not self._active_fugue:
-            return None
+            return []
         
         # Calculate musical time progression based on sequencer steps
         # Each step represents a 16th note (1/4 quarter note)
@@ -700,6 +983,9 @@ class FugueSequencer:
         # Update musical time based on step progression
         # Each call advances by one 16th note (0.25 quarter notes)
         self._fugue_musical_time += 0.25
+        
+        # Collect all notes that should play at this moment
+        notes_to_play = []
         
         # Check each voice to see if it's time to play its next note
         for voice_idx in range(len(self._active_fugue)):
@@ -720,10 +1006,16 @@ class FugueSequencer:
                 # Convert duration to seconds
                 duration_seconds = note['dur'] * quarter_note_duration
                 
-                log.debug(f"fugue_note voice={voice_idx} musical_time={self._fugue_musical_time:.2f} "
-                         f"note={note['pitch']} dur={duration_seconds:.3f}s")
-                
-                return (note['pitch'], note['vel'], duration_seconds)
+                # Handle rests vs notes
+                if note['pitch'] is None:
+                    # This is a rest - don't add to notes_to_play
+                    log.debug(f"fugue_rest voice={voice_idx} musical_time={self._fugue_musical_time:.2f} "
+                             f"dur={duration_seconds:.3f}s")
+                else:
+                    # This is a note - add it to the list for simultaneous playback
+                    notes_to_play.append((note['pitch'], note['vel'], duration_seconds))
+                    log.debug(f"fugue_note voice={voice_idx} musical_time={self._fugue_musical_time:.2f} "
+                             f"note={note['pitch']} dur={duration_seconds:.3f}s")
         
         # Check if all voices are exhausted
         all_exhausted = all(
@@ -736,7 +1028,7 @@ class FugueSequencer:
             self._last_fugue_end = time.perf_counter()
             log.info(f"fugue_completed all_voices_exhausted musical_time={self._fugue_musical_time:.2f}")
         
-        return None
+        return notes_to_play
 
 
 def create_fugue_sequencer(state: State, scale_mapper: ScaleMapper) -> FugueSequencer:

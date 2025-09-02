@@ -23,9 +23,10 @@ class TestFugueEngine:
         subject = self.engine.generate_subject(params, bars=1)
         
         assert len(subject) > 0, "Subject should have notes"
-        assert all(isinstance(note['pitch'], int) for note in subject), "All pitches should be integers"
+        # Allow for rests (None pitches) in the subject
+        assert all(note['pitch'] is None or isinstance(note['pitch'], int) for note in subject), "All pitches should be integers or None (for rests)"
         assert all(note['dur'] > 0 for note in subject), "All durations should be positive"
-        assert all(1 <= note['vel'] <= 127 for note in subject), "All velocities should be valid MIDI"
+        assert all(note['pitch'] is None or (1 <= note['vel'] <= 127) for note in subject), "All velocities should be valid MIDI (except rests)"
         
         # Check total duration is approximately 4 beats (allowing some variation)
         total_duration = sum(note['dur'] for note in subject)
@@ -128,10 +129,11 @@ class TestFugueEngine:
         
         assert len(score) == 3, "Should have 3 voices"
         assert all(len(voice) > 0 for voice in score), "All voices should have notes"
+        # Allow for rests (None pitches) in the voices
         assert all(
-            all(isinstance(note['pitch'], int) for note in voice)
+            all(note['pitch'] is None or isinstance(note['pitch'], int) for note in voice)
             for voice in score
-        ), "All pitches should be integers"
+        ), "All pitches should be integers or None (for rests)"
 
 
 class TestFugueSequencer:
@@ -194,22 +196,23 @@ class TestFugueSequencer:
         mock_time.return_value = 15.0
         assert self.fugue_sequencer.should_start_new_fugue() == True
     
-    def test_get_next_step_note_without_fugue(self):
+    def test_get_next_step_notes_without_fugue(self):
         """Test getting notes when no fugue is active."""
-        # Should return None initially
-        result = self.fugue_sequencer.get_next_step_note(0)
-        assert result is None or result is not None  # May start a fugue
-    
-    def test_get_next_step_note_with_fugue(self):
+        # Should return empty list initially  
+        result = self.fugue_sequencer.get_next_step_notes(0)
+        assert isinstance(result, list), "Should return a list"
+        # May be empty or may start a fugue and return notes
+
+    def test_get_next_step_notes_with_fugue(self):
         """Test getting notes from an active fugue."""
         self.fugue_sequencer.start_new_fugue()
         
         # Should get notes from the fugue
         notes_received = []
         for step in range(10):  # Try several steps
-            result = self.fugue_sequencer.get_next_step_note(step)
-            if result:
-                notes_received.append(result)
+            result = self.fugue_sequencer.get_next_step_notes(step)
+            assert isinstance(result, list), "Should return a list"
+            notes_received.extend(result)
         
         # Should have received some notes
         if len(notes_received) > 0:

@@ -7,7 +7,6 @@ sys.path.append('src')
 from state import State
 from scale_mapper import ScaleMapper
 from fugue import FugueSequencer, FugueParams, FugueEngine
-from note_utils import format_note_with_number, format_rest
 
 def debug_fugue_generation():
     """Debug the fugue generation process step by step."""
@@ -85,8 +84,7 @@ def debug_fugue_generation():
         note_result = fugue_sequencer.get_next_step_note(step)
         if note_result:
             note, velocity, duration = note_result
-            note_info = format_note_with_number(note) if note != -1 else format_rest()
-            print(f"Step {step:2d}: Note {note_info}, Vel {velocity:3d}, Dur {duration:.3f}s")
+            print(f"Step {step:2d}: Note {note:3d}, Vel {velocity:3d}, Dur {duration:.3f}s")
         else:
             print(f"Step {step:2d}: No note")
         

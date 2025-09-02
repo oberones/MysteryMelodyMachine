@@ -34,6 +34,7 @@ class SequencerConfig(BaseModel):
     # Phase 5.5 features
     step_pattern: Optional[str] = None
     direction_pattern: str = "forward"
+    voices: int = Field(3, ge=1, le=4)  # Number of voices for fugue mode (1-4)
 
 class MutationConfig(BaseModel):
     interval_min_s: int = 120

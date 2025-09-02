@@ -14,6 +14,7 @@ import random
 from state import State, StateChange
 from scale_mapper import ScaleMapper
 from fugue import FugueSequencer
+from note_utils import format_note_with_number, format_rest
 
 log = logging.getLogger(__name__)
 
@@ -519,7 +520,8 @@ class Sequencer:
             root_note = self.state.get('root_note', 60)  # Default to C4
             try:
                 self.scale_mapper.set_scale(scale_name, root_note=root_note)
-                log.info(f"scale_set name='{scale_name}' root={self.scale_mapper.root_note}")
+                root_info = format_note_with_number(self.scale_mapper.root_note)
+                log.info(f"scale_set name='{scale_name}' root={root_info}")
             except ValueError as e:
                 log.error(f"Failed to set scale: {e}")
         else:
@@ -627,9 +629,9 @@ class Sequencer:
             # The fugue engine has complete control over note generation timing
             # and uses its own musical logic for when notes should play.
             
-            fugue_note = self._fugue_sequencer.get_next_step_note(step)
-            if fugue_note:
-                note, velocity, duration = fugue_note
+            fugue_notes = self._fugue_sequencer.get_next_step_notes(step)
+            for note_data in fugue_notes:
+                note, velocity, duration = note_data
                 note_event = NoteEvent(
                     note=note,
                     velocity=velocity,
@@ -640,7 +642,8 @@ class Sequencer:
                 
                 try:
                     self._note_callback(note_event)
-                    log.debug(f"fugue_note_generated step={step} note={note} velocity={velocity} duration={duration:.3f}")
+                    note_info = format_note_with_number(note) if note != -1 else format_rest()
+                    log.debug(f"fugue_note_generated step={step} note={note_info} velocity={velocity} duration={duration:.3f}")
                 except Exception as e:
                     log.error(f"Fugue note callback error: {e}")
             
@@ -723,7 +726,8 @@ class Sequencer:
             
             try:
                 self._note_callback(note_event)
-                log.debug(f"note_generated step={step} note={note} velocity={velocity} gate_length={gate_length:.3f} step_prob={step_prob:.2f}")
+                note_info = format_note_with_number(note)
+                log.debug(f"note_generated step={step} note={note_info} velocity={velocity} gate_length={gate_length:.3f} step_prob={step_prob:.2f}")
             except Exception as e:
                 log.error(f"Note callback error: {e}")
 

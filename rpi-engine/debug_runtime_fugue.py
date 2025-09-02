@@ -7,6 +7,7 @@ sys.path.append('src')
 
 from state import State
 from sequencer import Sequencer
+from note_utils import format_note_with_number, format_rest
 
 def debug_runtime_fugue():
     """Debug what happens during actual fugue mode execution."""
@@ -37,7 +38,7 @@ def debug_runtime_fugue():
             'duration': note_event.duration,
             'timestamp': note_event.timestamp
         })
-        print(f"♪ Step {note_event.step:2d}: Note {note_event.note:3d}, Vel {note_event.velocity:3d}, Dur {note_event.duration:.3f}s")
+        print(f"♪ Step {note_event.step:2d}: Note {format_note_with_number(note_event.note) if note_event.note != -1 else format_rest()}, Vel {note_event.velocity:3d}, Dur {note_event.duration:.3f}s")
     
     sequencer.set_note_callback(note_callback)
     

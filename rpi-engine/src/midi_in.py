@@ -3,6 +3,7 @@ import logging
 from typing import Optional, Callable
 import mido
 from mido import Message
+from note_utils import format_note_with_number
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +50,13 @@ class MidiInput:
             self._port = None
 
     def _on_msg(self, msg: Message):  # mido background thread
-        log.debug("Received MIDI message: %s", msg)
+        # Enhanced logging for note messages with note names
+        if msg.type in ('note_on', 'note_off'):
+            note_info = format_note_with_number(msg.note)
+            log.debug(f"Received MIDI {msg.type}: note={note_info} velocity={msg.velocity} channel={msg.channel + 1}")
+        else:
+            log.debug("Received MIDI message: %s", msg)
+        
         try:
             self.callback(msg)
         except Exception:  # noqa: broad-except

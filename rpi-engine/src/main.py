@@ -16,6 +16,7 @@ from action_handler import ActionHandler
 from mutation import create_mutation_engine
 from idle import create_idle_manager
 from cc_profiles import load_custom_profiles
+from note_utils import format_note_with_number, format_rest
 
 
 @dataclass
@@ -128,7 +129,7 @@ def main(argv: Optional[list[str]] = None):
     log.info(f"sequencer_bpm={cfg.sequencer.bpm}")
     log.info(f"sequencer_swing={cfg.sequencer.swing}")
     log.info(f"sequencer_density={cfg.sequencer.density}")
-    log.info(f"sequencer_root_note={cfg.sequencer.root_note}")
+    log.info(f"sequencer_root_note={format_note_with_number(cfg.sequencer.root_note)}")
     log.info(f"sequencer_gate_length={cfg.sequencer.gate_length}")
     log.info(f"sequencer_quantize_scale_changes={cfg.sequencer.quantize_scale_changes}")
     
@@ -259,10 +260,16 @@ def main(argv: Optional[list[str]] = None):
     note_scheduler = NoteScheduler(midi_output)
     note_scheduler.start()    # Set up note callback for sequencer-generated notes
     def handle_note_event(note_event: NoteEvent):
-        log.info(f"note_event note={note_event.note} velocity={note_event.velocity} step={note_event.step} duration={note_event.duration:.3f}")
+        # Format note information with both name and number
+        if note_event.note == -1:
+            note_info = format_rest()
+        else:
+            note_info = format_note_with_number(note_event.note)
+        
+        log.info(f"note_event note={note_info} velocity={note_event.velocity} step={note_event.step} duration={note_event.duration:.3f}")
         
         # Send directly via MIDI output (no latency optimizer)
-        if midi_output and midi_output.is_connected:
+        if midi_output and midi_output.is_connected and note_event.note != -1:
             midi_output.send_note_on(note_event.note, note_event.velocity, cfg.midi.output_channel)
             note_scheduler.schedule_note_off(note_event.note, cfg.midi.output_channel, note_event.duration)
         

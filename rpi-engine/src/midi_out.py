@@ -9,6 +9,7 @@ from typing import Optional, Protocol
 import logging
 import mido
 import time
+from note_utils import format_note_with_number
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ class MidiOutput:
             ch = (channel or self.channel) - 1  # Convert to 0-based
             msg = mido.Message('note_on', channel=ch, note=note, velocity=velocity)
             self.port.send(msg)
-            log.debug(f"Sent Note On: note={note} velocity={velocity} channel={channel or self.channel}")
+            log.debug(f"Sent Note On: note={format_note_with_number(note)} velocity={velocity} channel={channel or self.channel}")
             return True
             
         except Exception as e:
@@ -138,7 +139,7 @@ class MidiOutput:
             ch = (channel or self.channel) - 1  # Convert to 0-based
             msg = mido.Message('note_off', channel=ch, note=note, velocity=velocity)
             self.port.send(msg)
-            log.debug(f"Sent Note Off: note={note} velocity={velocity} channel={channel or self.channel}")
+            log.debug(f"Sent Note Off: note={format_note_with_number(note)} velocity={velocity} channel={channel or self.channel}")
             return True
             
         except Exception as e:

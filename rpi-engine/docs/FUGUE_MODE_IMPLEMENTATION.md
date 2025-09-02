@@ -50,6 +50,7 @@ The fugue engine automatically generates subjects based on:
   - Clear contour with mix of steps and leaps
   - Distinctive rhythmic patterns
   - Cadential closure
+  - Strategic use of rests for phrasing and expression
   - Typical length of 4 beats (1 bar in 4/4 time)
 
 ### Voice Management
@@ -98,6 +99,14 @@ The `density` parameter in fugue mode serves a different purpose than in standar
 
 ## Musical Features
 
+### Enhanced Expression with Rests
+
+The fugue mode now includes comprehensive rest support that enhances musical expression:
+- **Strategic Silences**: Rests are placed for phrasing, breathing, and dramatic effect
+- **Voice Separation**: Rests help distinguish between polyphonic voices
+- **Authentic Patterns**: Rest placement follows Bach-like compositional principles
+- **Textural Variety**: Dynamic changes in polyphonic density through strategic silence
+
 ### Tonal vs Real Answers
 
 By default, the system uses **tonal answers** which adjust the first tonic→dominant motion to prevent early modulation, following Bach's practice in the Well-Tempered Clavier.
@@ -116,6 +125,7 @@ Episodes are created by:
 - Extracting 2-beat fragments from the subject
 - Sequencing through related keys (circle of fifths)
 - Distributing across voices with canonic imitation
+- Including strategic rests for phrasing and breathing
 
 ## Integration with Existing Systems
 
