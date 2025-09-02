@@ -2,8 +2,11 @@ logging:
   level: INFO
 
 midi:
-  input_port: "Teensy MIDI"
-  output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
+  input_port: "auto"
+  output_port: "auto"  # Set to "auto" or specific port name to enable MIDI output
+  # input_port: "Teensy MIDI"
+  # output_port: "RK006 OUT_ALL"  # Set to "auto" or specific port name to enable MIDI output
+
   input_channel: 1
   output_channel: 10
 
@@ -21,7 +24,7 @@ mapping:
   buttons:
     "60-69": trigger_step
   ccs:
-    "26": sequence_length
+    "2": sequence_length
     "27": tempo
     "21": filter_cutoff      # K1 -> NTS-1 Filter Cutoff (CC 43)
     "22": filter_resonance   # K2 -> NTS-1 Filter Resonance (CC 44)
@@ -33,19 +36,19 @@ mapping:
     "51": osc_b              # Joystick Down -> NTS-1 OSC B (CC 55)
     "52": mod_a              # Joystick Left -> NTS-1 MOD A (CC 28)
     "53": mod_b              # Joystick Right -> NTS-1 MOD B (CC 29)
-    "2": osc_type           # S1 -> NTS-1 OSC Type (CC 53)
+    "60": osc_type           # S1 -> NTS-1 OSC Type (CC 53)
     "61": filter_type        # S2 -> NTS-1 Filter Type (CC 42)
     "62": mod_type           # S3 -> NTS-1 MOD Type (CC 88)
 
 sequencer:
-  steps: 32
-  bpm: 65
+  steps: 16
+  bpm: 95
   swing: 0.12
   density: 0.85
-  root_note: 55  # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
+  root_note: 61           # MIDI note number for scale root (C4 = 60, C# = 61, D = 62, etc.)
   gate_length: 1         # Note duration as fraction of step duration (0.1-1.0)
   quantize_scale_changes: bar
-  step_pattern: all_on # syncopated | four_on_the_floor | all_on
+  step_pattern: syncopated # syncopated | four_on_the_floor | all_on
   direction_pattern: random
 
 scales:
