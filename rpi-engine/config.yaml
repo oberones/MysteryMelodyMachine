@@ -39,7 +39,7 @@ mapping:
     "62": mod_type           # S3 -> NTS-1 MOD Type (CC 88)
 
 sequencer:
-  steps: 8
+  steps: 4
   bpm: 65
   swing: 0.12
   density: .85
@@ -48,7 +48,7 @@ sequencer:
   quantize_scale_changes: bar
   step_pattern: syncopated # syncopated | four_on_the_floor | all_on
   direction_pattern: fugue # forward | backward | ping_pong | random | fugue
-  voices: 2                # Number of voices for fugue mode (1-4, where 1 = monophonic)
+  voices: 1                # Number of voices for fugue mode (1-4, where 1 = monophonic)
 
 
 scales:

@@ -136,6 +136,7 @@ def main(argv: Optional[list[str]] = None):
     # Phase 5.5 Sequencer Features
     log.info(f"sequencer_step_pattern={cfg.sequencer.step_pattern}")
     log.info(f"sequencer_direction_pattern={cfg.sequencer.direction_pattern}")
+    log.info(f"sequencer_voices={cfg.sequencer.voices}")
     
     # Scales
     log.info(f"available_scales={cfg.scales}")
@@ -180,6 +181,7 @@ def main(argv: Optional[list[str]] = None):
         'sequence_length': cfg.sequencer.steps,
         'root_note': cfg.sequencer.root_note,
         'gate_length': cfg.sequencer.gate_length,
+        'voices': cfg.sequencer.voices,
         'smooth_idle_transitions': cfg.idle.smooth_bpm_transitions,
         'idle_transition_duration_s': cfg.idle.bpm_transition_duration_s,
     }, source='config')

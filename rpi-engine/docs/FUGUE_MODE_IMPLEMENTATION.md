@@ -28,6 +28,7 @@ sequencer:
                            # NOTE: In fugue mode, density does NOT gate note generation
                            # like it does in other modes - it only affects musical features
   root_note: 60             # Key center for fugue generation
+  voices: 3                 # Number of voices (1-4, where 1 = monophonic)
 ```
 
 ### Available Patterns
@@ -55,13 +56,14 @@ The fugue engine automatically generates subjects based on:
 
 ### Voice Management
 
-- **2-4 voices** supported (determined by sequence length / 4)
+- **1-4 voices** supported (configured via `voices` setting in config.yaml)
 - All voices output to the same MIDI channel (as per requirements)
-- Voices alternate between subject (tonic) and answer (dominant)
-- **Voice 1**: Subject in tonic
-- **Voice 2**: Answer in dominant
-- **Voice 3**: Subject in tonic
-- **Voice 4**: Answer in dominant
+- When `voices: 1` - Creates flowing monophonic melodies based on the subject
+- When `voices: 2-4` - Generates polyphonic fugues with alternating subject/answer entries:
+  - **Voice 1**: Subject in tonic
+  - **Voice 2**: Answer in dominant
+  - **Voice 3**: Subject in tonic
+  - **Voice 4**: Answer in dominant
 
 ### Timing and Structure
 
